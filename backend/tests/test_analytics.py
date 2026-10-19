@@ -421,4 +421,8 @@ async def test_admin_can_view_admin_wide_analytics_including_link_statuses(
         "clicks": 6,
         "is_active": False,
         "is_abusive": False,
+        "destination_url": None,
+        "click_limit": None,
+        "expires_at": None,
+        "status": "disabled",
     }

@@ -1,10 +1,18 @@
 import { useState } from "react";
 
+import AnalyticsDashboard from "../components/analytics/AnalyticsDashboard.jsx";
 import CreationWizard from "../components/wizard/CreationWizard.jsx";
 
-export default function LinksPage({ accessToken = null }) {
+export default function LinksPage({ accessToken = null, userRole = null }) {
   const [isWizardOpen, setWizardOpen] = useState(false);
   const [createdLink, setCreatedLink] = useState(null);
+  const [selectedRange, setSelectedRange] = useState("30d");
+  const [refreshSignal, setRefreshSignal] = useState(0);
+
+  const handleCreated = (link) => {
+    setCreatedLink(link);
+    setRefreshSignal((value) => value + 1);
+  };
 
   return (
     <main className="app-shell">
@@ -26,10 +34,10 @@ export default function LinksPage({ accessToken = null }) {
 
       <section className="workspace-hero">
         <div>
-          <p className="section-kicker">Link management</p>
-          <h1>Build links that move people forward.</h1>
+          <p className="section-kicker">Workspace overview</p>
+          <h1>See what your links are doing.</h1>
           <p className="hero-copy">
-            Create a clean short URL, add the rules you need, and keep the destination under your control.
+            Track real traffic, understand your audience, and keep historical performance visible when links change status.
           </p>
         </div>
         <button className="button button-primary button-large" type="button" onClick={() => setWizardOpen(true)}>
@@ -37,19 +45,13 @@ export default function LinksPage({ accessToken = null }) {
         </button>
       </section>
 
-      <section className="empty-workspace" aria-labelledby="empty-workspace-heading">
-        <div className="empty-illustration" aria-hidden="true">
-          <span>↗</span>
-          <span>•••</span>
-          <span>↘</span>
-        </div>
-        <p className="section-kicker">Your links</p>
-        <h2 id="empty-workspace-heading">Nothing here yet</h2>
-        <p>Create your first short link to start building your workspace. Analytics and link history will appear after traffic arrives.</p>
-        <button className="button button-secondary" type="button" onClick={() => setWizardOpen(true)}>
-          Start with a link
-        </button>
-      </section>
+      <AnalyticsDashboard
+        accessToken={accessToken}
+        isAdmin={userRole === "admin"}
+        selectedRange={selectedRange}
+        onRangeChange={setSelectedRange}
+        refreshSignal={refreshSignal}
+      />
 
       {createdLink && (
         <section className="creation-toast" role="status">
@@ -69,7 +71,7 @@ export default function LinksPage({ accessToken = null }) {
         isOpen={isWizardOpen}
         accessToken={accessToken}
         onClose={() => setWizardOpen(false)}
-        onCreated={setCreatedLink}
+        onCreated={handleCreated}
       />
     </main>
   );

@@ -77,13 +77,33 @@ def _row_value(row: Any, name: str, position: int) -> Any:
         return row[position]
 
 
+def _optional_row_value(row: Any, name: str, position: int, default: Any = None) -> Any:
+    try:
+        return _row_value(row, name, position)
+    except (IndexError, KeyError, TypeError):
+        return default
+
+
 def _link_status(link: Link) -> Literal["active", "disabled", "abusive", "expired"]:
-    if not link.is_active:
+    return _status_from_values(
+        is_active=link.is_active,
+        is_abusive=link.is_abusive,
+        expires_at=link.expires_at,
+    )
+
+
+def _status_from_values(
+    *,
+    is_active: bool,
+    is_abusive: bool,
+    expires_at: datetime | None,
+) -> Literal["active", "disabled", "abusive", "expired"]:
+    if not is_active:
         return "disabled"
-    if link.is_abusive:
+    if is_abusive:
         return "abusive"
-    if link.expires_at is not None:
-        expiration = link.expires_at
+    if expires_at is not None:
+        expiration = expires_at
         if expiration.tzinfo is None or expiration.utcoffset() is None:
             expiration = expiration.replace(tzinfo=timezone.utc)
         if expiration <= datetime.now(timezone.utc):
@@ -235,9 +255,20 @@ async def get_analytics(
             func.count(ClickEvent.id).label("clicks"),
             Link.is_active,
             Link.is_abusive,
+            Link.destination_url,
+            Link.click_limit,
+            Link.expires_at,
         )
         .where(*event_conditions)
-        .group_by(Link.id, Link.short_code, Link.is_active, Link.is_abusive)
+        .group_by(
+            Link.id,
+            Link.short_code,
+            Link.is_active,
+            Link.is_abusive,
+            Link.destination_url,
+            Link.click_limit,
+            Link.expires_at,
+        )
         .order_by(func.count(ClickEvent.id).desc(), Link.short_code)
         .limit(10)
     )
@@ -248,6 +279,14 @@ async def get_analytics(
             clicks=_as_int(_row_value(row, "clicks", 2)),
             is_active=bool(_row_value(row, "is_active", 3)),
             is_abusive=bool(_row_value(row, "is_abusive", 4)),
+            destination_url=_optional_row_value(row, "destination_url", 5),
+            click_limit=_optional_row_value(row, "click_limit", 6),
+            expires_at=_optional_row_value(row, "expires_at", 7),
+            status=_status_from_values(
+                is_active=bool(_row_value(row, "is_active", 3)),
+                is_abusive=bool(_row_value(row, "is_abusive", 4)),
+                expires_at=_optional_row_value(row, "expires_at", 7),
+            ),
         )
         for row in top_links_result.all()
     ]

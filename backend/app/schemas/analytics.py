@@ -45,6 +45,10 @@ class TopLinkAnalytics(BaseModel):
     clicks: int
     is_active: bool
     is_abusive: bool
+    destination_url: str | None = None
+    click_limit: int | None = None
+    expires_at: datetime | None = None
+    status: Literal["active", "disabled", "abusive", "expired"] = "active"
 
 
 class LinkAnalyticsInfo(BaseModel):
