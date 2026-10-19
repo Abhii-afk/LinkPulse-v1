@@ -22,6 +22,15 @@ class Settings(BaseSettings):
     jwt_secret: str = ""
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 30
+    analytics_stream_name: str = "stream:clicks"
+    analytics_consumer_group: str = "click_group"
+    analytics_consumer_name: str = ""
+    analytics_batch_size: int = 100
+    analytics_block_ms: int = 2000
+    analytics_claim_min_idle_ms: int = 60000
+    geolite2_city_db_path: str | None = None
+    geoip_mock_country_code: str = "XX"
+    geoip_mock_city: str = "Mock City"
 
 
 @lru_cache

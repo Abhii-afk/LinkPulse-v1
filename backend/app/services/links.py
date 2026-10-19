@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.security import hash_password
 from app.models.campaign import Campaign
 from app.models.link import Link
@@ -19,7 +20,7 @@ from app.schemas.link import CreateLinkRequest
 LINK_CACHE_PREFIX = "link:"
 LINK_CACHE_TTL_SECONDS = 60 * 60
 CLICK_COUNT_PREFIX = "clicks:count:"
-CLICK_STREAM_KEY = "stream:clicks"
+CLICK_STREAM_KEY = settings.analytics_stream_name
 GENERATED_ALIAS_LENGTH = 8
 GENERATED_ALIAS_ATTEMPTS = 5
 ALIAS_ALPHABET = string.ascii_lowercase + string.digits
