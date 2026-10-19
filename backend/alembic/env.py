@@ -6,7 +6,7 @@ from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.core.config import settings
-from app.models import Base, User
+from app.models import Base, Campaign, Link, User
 
 
 config = context.config

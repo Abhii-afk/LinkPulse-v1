@@ -1,4 +1,5 @@
 import redis.asyncio as redis
+from fastapi import Request
 from redis.asyncio import Redis
 
 from app.core.config import settings
@@ -12,3 +13,7 @@ async def ping_redis(client: Redis) -> None:
     """Raise if Redis does not answer a ping."""
 
     await client.ping()
+
+
+async def get_redis(request: Request) -> Redis:
+    return request.app.state.redis

@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     api_port: int = 8000
     database_url: str = "postgresql+asyncpg://linkpulse:linkpulse@127.0.0.1:5432/linkpulse"
     redis_url: str = "redis://127.0.0.1:6379/0"
+    public_base_url: str = "http://127.0.0.1:8000"
     jwt_secret: str = ""
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 30
