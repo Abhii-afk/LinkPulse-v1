@@ -28,7 +28,7 @@ class FakeRedis:
     def __init__(self) -> None:
         self.values: dict[str, str] = {}
 
-    async def set(self, key: str, value: str) -> bool:
+    async def set(self, key: str, value: str, *, ex: int | None = None) -> bool:
         self.values[key] = value
         return True
 

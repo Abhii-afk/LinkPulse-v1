@@ -17,6 +17,9 @@ from app.schemas.link import CreateLinkRequest
 
 
 LINK_CACHE_PREFIX = "link:"
+LINK_CACHE_TTL_SECONDS = 60 * 60
+CLICK_COUNT_PREFIX = "clicks:count:"
+CLICK_STREAM_KEY = "stream:clicks"
 GENERATED_ALIAS_LENGTH = 8
 GENERATED_ALIAS_ATTEMPTS = 5
 ALIAS_ALPHABET = string.ascii_lowercase + string.digits
@@ -63,6 +66,30 @@ async def _delete_cache_key(redis: Redis, key: str) -> None:
         await redis.delete(key)
     except RedisError:
         return
+
+
+def link_cache_key(short_code: str) -> str:
+    return f"{LINK_CACHE_PREFIX}{short_code}"
+
+
+def click_count_key(short_code: str) -> str:
+    return f"{CLICK_COUNT_PREFIX}{short_code}"
+
+
+async def cache_link(redis: Redis, link: Link) -> None:
+    """Cache routing metadata with the redirect engine's fixed TTL."""
+
+    await redis.set(
+        link_cache_key(link.short_code),
+        json.dumps(routing_metadata(link)),
+        ex=LINK_CACHE_TTL_SECONDS,
+    )
+
+
+async def invalidate_link_cache(redis: Redis, short_code: str) -> None:
+    """Remove routing metadata so status changes take effect immediately."""
+
+    await redis.delete(link_cache_key(short_code))
 
 
 async def _campaign_for_user(
@@ -125,10 +152,14 @@ async def create_link(
                 raise DuplicateAliasError from None
             continue
 
-        cache_key = f"{LINK_CACHE_PREFIX}{short_code}"
+        cache_key = link_cache_key(short_code)
         cache_written = False
         try:
-            await redis.set(cache_key, json.dumps(routing_metadata(link)))
+            await redis.set(
+                cache_key,
+                json.dumps(routing_metadata(link)),
+                ex=LINK_CACHE_TTL_SECONDS,
+            )
             cache_written = True
         except RedisError as error:
             await db.rollback()

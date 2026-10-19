@@ -10,6 +10,7 @@ from app.routers.admin import router as admin_router
 from app.routers.auth import router as auth_router
 from app.routers.health import router as health_router
 from app.routers.links import router as links_router
+from app.routers.redirect import router as redirect_router
 from app.routers.user import router as user_router
 
 
@@ -30,3 +31,4 @@ app.include_router(auth_router)
 app.include_router(links_router)
 app.include_router(user_router)
 app.include_router(admin_router)
+app.include_router(redirect_router)
