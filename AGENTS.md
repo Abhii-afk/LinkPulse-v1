@@ -28,6 +28,13 @@ backend/tests/, frontend/src/{components,pages,api}, docker-compose.yml
 7. RBAC: visitor / user / admin enforced by JWT dependencies, never in the frontend alone.
 8. No external geolocation or bot APIs. Use a local GeoLite2 file with a mock fallback.
 9. No new dependencies or cloud services without asking first.
+10. Link creation and link-password attempts are rate limited per client IP
+    with a Redis sliding window (30 creations per minute by default).
+11. A solved link password is carried by a short-lived HMAC-signed cookie that
+    is bound to one short code. A cookie that is not signed by this server
+    never unlocks a link.
+12. The service validates its configuration on startup. A missing or too
+    short `JWT_SECRET` stops the boot instead of failing at the first login.
 
 ## How to work
 - Work in small vertical slices. One slice per task. Do not start the next one.

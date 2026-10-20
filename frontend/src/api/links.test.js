@@ -13,7 +13,9 @@ const validForm = {
   destinationUrl: "https://example.com/launch",
   customAlias: "launch-2026",
   enableExpiration: true,
-  expiresAt: "2099-01-01T12:00",
+  // The expiry is written with an explicit UTC offset so the expectation
+  // below does not depend on the time zone the tests run in.
+  expiresAt: "2099-01-01T12:00:00Z",
   enableClickLimit: true,
   clickLimit: "250",
   enablePassword: true,

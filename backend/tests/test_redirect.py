@@ -8,6 +8,7 @@ from httpx import ASGITransport, AsyncClient
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
+from app.core.link_session import issue_link_session_token
 from app.core.redis_client import get_redis
 from app.core.security import hash_password
 from app.main import app
@@ -285,12 +286,32 @@ async def test_password_session_cookie_allows_redirect_without_plaintext_compari
         make_metadata(password_hash=password_hash, has_password=True),
     )
 
-    client.cookies.set("auth_go", "opaque-session-token")
+    client.cookies.set("auth_go", issue_link_session_token("go"))
     response = await client.get("/go")
 
     assert response.status_code == 302
     assert password_hash not in response.text
     assert redis.stream[0]["payload"]["short_code"] == "go"  # type: ignore[index]
+
+
+@pytest.mark.asyncio
+async def test_forged_password_cookie_does_not_unlock_a_protected_link(
+    client: AsyncClient,
+    configure_dependencies: Callable[[Link | None], tuple[FakeSession, FakeRedis]],
+) -> None:
+    _session, redis = configure_dependencies()
+    password_hash = hash_password("correct-password")
+    await cache_metadata(
+        redis,
+        make_metadata(password_hash=password_hash, has_password=True),
+    )
+
+    client.cookies.set("auth_go", "anything-the-visitor-makes-up")
+    response = await client.get("/go")
+
+    assert response.status_code == 401
+    assert "Enter Link Password" in response.text
+    assert redis.stream == []
 
 
 @pytest.mark.asyncio

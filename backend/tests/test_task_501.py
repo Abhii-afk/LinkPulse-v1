@@ -3,6 +3,7 @@ import json
 from collections.abc import AsyncIterator, Callable
 from datetime import datetime, timezone
 from types import SimpleNamespace
+from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
@@ -17,6 +18,11 @@ from app.main import app
 from app.models.domain_blocklist import DomainBlocklist
 from app.models.link import Link
 from app.models.user import User, UserRole
+from tests.redis_fakes import (
+    SlidingWindowCounter,
+    is_rate_limit_call,
+    rate_limit_arguments,
+)
 
 
 class FakeResult:
@@ -52,6 +58,7 @@ class FakeRedis:
         self.values: dict[str, str] = {}
         self.ttls: dict[str, int | None] = {}
         self.stream: list[dict[str, object]] = []
+        self.rate_limiter = SlidingWindowCounter()
         self._click_lock = asyncio.Lock()
 
     async def get(self, key: str) -> str | None:
@@ -66,7 +73,10 @@ class FakeRedis:
         self.ttls.pop(key, None)
         return int(self.values.pop(key, None) is not None)
 
-    async def eval(self, _script: str, _number_of_keys: int, *args: str) -> int:
+    async def eval(self, _script: str, number_of_keys: int, *args: str) -> Any:
+        if is_rate_limit_call(number_of_keys):
+            return self.rate_limiter.apply(*rate_limit_arguments(args))
+
         counter_key, stream_key, initial, limit, payload = args
         async with self._click_lock:
             current = int(self.values.get(counter_key, initial))

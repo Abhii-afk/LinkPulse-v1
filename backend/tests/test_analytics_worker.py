@@ -79,6 +79,17 @@ class FakeRedis:
         return len(message_ids)
 
 
+class FakeSavepoint:
+    def __init__(self, session: "FakeSession") -> None:
+        self.session = session
+
+    async def __aenter__(self) -> "FakeSavepoint":
+        return self
+
+    async def __aexit__(self, _exc_type: object, _exc: object, _traceback: object) -> None:
+        return None
+
+
 class FakeSession:
     def __init__(self, order: list[str]) -> None:
         self.order = order
@@ -86,6 +97,7 @@ class FakeSession:
         self.commit_count = 0
         self.rollback_count = 0
         self.commit_error = False
+        self.reject_stream_message_ids: set[str] = set()
 
     async def __aenter__(self) -> "FakeSession":
         return self
@@ -96,6 +108,13 @@ class FakeSession:
     async def execute(self, statement: object) -> None:
         self.order.append("execute")
         self.statements.append(statement)
+        for message_id in self.reject_stream_message_ids:
+            if message_id in str(statement.compile(compile_kwargs={"literal_binds": True})):
+                raise RuntimeError("simulated constraint violation")
+
+    def begin_nested(self) -> FakeSavepoint:
+        self.order.append("begin_nested")
+        return FakeSavepoint(self)
 
     async def commit(self) -> None:
         self.order.append("commit")
@@ -127,7 +146,7 @@ class FakeReader:
         return None
 
 
-def event_message(message_id: str = "1-0", **overrides: object) -> tuple[str, dict[str, str]]:
+def _payload(**overrides: object) -> dict[str, object]:
     payload: dict[str, object] = {
         "short_code": "go",
         "link_id": str(LINK_ID),
@@ -137,7 +156,11 @@ def event_message(message_id: str = "1-0", **overrides: object) -> tuple[str, di
         "referrer": "https://referrer.example/",
     }
     payload.update(overrides)
-    return message_id, {"payload": json.dumps(payload)}
+    return payload
+
+
+def event_message(message_id: str = "1-0", **overrides: object) -> tuple[str, dict[str, str]]:
+    return message_id, {"payload": json.dumps(_payload(**overrides))}
 
 
 def make_worker(
@@ -316,6 +339,57 @@ async def test_malformed_event_is_not_acknowledged_or_persisted() -> None:
     assert processed is False
     assert redis.acknowledged == []
     assert session.statements == []
+
+
+@pytest.mark.asyncio
+async def test_malformed_event_does_not_block_the_healthy_records_of_the_same_batch() -> None:
+    redis = FakeRedis()
+    session = FakeSession([])
+    worker = make_worker(redis, session)
+    messages = [
+        ("5-0", {"payload": "not-json"}),
+        ("6-0", {"payload": json.dumps(_payload())}),
+    ]
+
+    processed = await worker.process_messages(messages)
+
+    # The healthy record is stored and acknowledged; only the malformed
+    # message stays pending.
+    assert processed is False
+    assert redis.acknowledged == ["6-0"]
+    assert len(session.statements) == 1
+
+
+@pytest.mark.asyncio
+async def test_record_rejected_by_the_database_does_not_block_the_rest_of_the_batch() -> None:
+    redis = FakeRedis()
+    session = FakeSession([])
+    session.reject_stream_message_ids = {"7-0"}
+    worker = make_worker(redis, session)
+    messages = [
+        ("7-0", {"payload": json.dumps(_payload())}),
+        ("8-0", {"payload": json.dumps(_payload())}),
+    ]
+
+    processed = await worker.process_messages(messages)
+
+    assert processed is False
+    assert redis.acknowledged == ["8-0"]
+    assert session.commit_count == 1
+
+
+@pytest.mark.asyncio
+async def test_batch_statement_keeps_the_durable_link_click_count_in_step() -> None:
+    redis = FakeRedis()
+    session = FakeSession([])
+    worker = make_worker(redis, session)
+
+    await worker.process_messages([("9-0", {"payload": json.dumps(_payload())})])
+
+    statement_sql = str(session.statements[0].compile(compile_kwargs={"literal_binds": True}))
+    assert "WITH inserted_clicks AS" in statement_sql
+    assert "UPDATE links SET total_clicks" in statement_sql
+    assert "ON CONFLICT (stream_message_id) DO NOTHING" in statement_sql
 
 
 @pytest.mark.asyncio

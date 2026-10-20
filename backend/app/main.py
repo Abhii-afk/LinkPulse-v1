@@ -3,7 +3,7 @@ from collections.abc import AsyncIterator
 
 from fastapi import FastAPI
 
-from app.core.config import settings
+from app.core.config import settings, validate_settings
 from app.core.database import engine
 from app.core.redis_client import create_redis_client
 from app.routers.admin import router as admin_router
@@ -17,6 +17,8 @@ from app.routers.user import router as user_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    # Refuse to serve traffic with an incomplete or insecure configuration.
+    validate_settings()
     redis_client = create_redis_client()
     app.state.redis = redis_client
     try:

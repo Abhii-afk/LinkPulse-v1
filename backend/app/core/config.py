@@ -3,6 +3,10 @@ from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+SUPPORTED_JWT_ALGORITHMS = frozenset({"HS256", "HS384", "HS512"})
+MINIMUM_JWT_SECRET_LENGTH = 24
+
+
 class Settings(BaseSettings):
     """Runtime settings loaded from environment variables."""
 
@@ -22,6 +26,11 @@ class Settings(BaseSettings):
     jwt_secret: str = ""
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 30
+    link_session_secret: str = ""
+    link_session_ttl_seconds: int = 900
+    rate_limit_link_creation_per_minute: int = 30
+    rate_limit_window_seconds: int = 60
+    rate_limit_password_attempts_per_minute: int = 10
     analytics_stream_name: str = "stream:clicks"
     analytics_consumer_group: str = "click_group"
     analytics_consumer_name: str = ""
@@ -32,6 +41,23 @@ class Settings(BaseSettings):
     geoip_mock_country_code: str = "XX"
     geoip_mock_city: str = "Mock City"
 
+    @property
+    def resolved_link_session_secret(self) -> str:
+        """Signing key for password-challenge cookies.
+
+        Falls back to the JWT secret so a single configured secret is enough
+        for a local deployment, while production can rotate the two
+        independently.
+        """
+
+        return self.link_session_secret or self.jwt_secret
+
+    @property
+    def cookies_require_secure_transport(self) -> bool:
+        """Cookies are only marked Secure when the public origin is HTTPS."""
+
+        return self.public_base_url.lower().startswith("https://")
+
 
 @lru_cache
 def get_settings() -> Settings:
@@ -39,3 +65,31 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
+
+
+def validate_settings(current: Settings | None = None) -> None:
+    """Fail fast on an insecure or incomplete deployment configuration.
+
+    Called during application startup so a missing secret is a clear startup
+    error instead of a runtime 500 on the first login.
+    """
+
+    active = current or settings
+
+    if not active.jwt_secret:
+        raise RuntimeError("JWT_SECRET is not configured")
+    if len(active.jwt_secret) < MINIMUM_JWT_SECRET_LENGTH:
+        raise RuntimeError(
+            f"JWT_SECRET must be at least {MINIMUM_JWT_SECRET_LENGTH} characters long"
+        )
+    if active.jwt_algorithm not in SUPPORTED_JWT_ALGORITHMS:
+        allowed = ", ".join(sorted(SUPPORTED_JWT_ALGORITHMS))
+        raise RuntimeError(f"JWT_ALGORITHM must be one of {allowed}")
+    if not active.resolved_link_session_secret:
+        raise RuntimeError("LINK_SESSION_SECRET is not configured")
+    if active.rate_limit_link_creation_per_minute < 1:
+        raise RuntimeError("RATE_LIMIT_LINK_CREATION_PER_MINUTE must be at least 1")
+    if active.rate_limit_window_seconds < 1:
+        raise RuntimeError("RATE_LIMIT_WINDOW_SECONDS must be at least 1")
+    if active.link_session_ttl_seconds < 1:
+        raise RuntimeError("LINK_SESSION_TTL_SECONDS must be at least 1")

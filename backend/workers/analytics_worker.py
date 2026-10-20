@@ -10,6 +10,7 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 from redis.exceptions import ResponseError
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert as postgres_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -17,6 +18,7 @@ from app.core.config import settings
 from app.core.database import async_session_factory, engine
 from app.core.redis_client import create_redis_client
 from app.models.click_event import ClickEvent
+from app.models.link import Link
 from app.services.geolocation import GeoLocator
 from app.services.user_agent import parse_user_agent
 
@@ -150,51 +152,144 @@ class AnalyticsWorker:
             "is_anomalous": False,
         }
 
-    async def persist_batch(self, records: Iterable[dict[str, Any]]) -> None:
+    def _batch_statement(self, values: list[dict[str, Any]]):
+        """Insert a batch and keep the durable per-link click count in step.
+
+        The insert and the counter update are one statement, so the count in
+        PostgreSQL can never drift away from the stored click events. Only
+        rows that were really inserted are counted, which keeps a redelivered
+        batch from inflating the total.
+        """
+
+        inserted = (
+            postgres_insert(ClickEvent)
+            .values(values)
+            .on_conflict_do_nothing(index_elements=[ClickEvent.stream_message_id])
+            .returning(ClickEvent.link_id)
+            .cte("inserted_clicks")
+        )
+        return (
+            update(Link)
+            .where(Link.id.in_(select(inserted.c.link_id)))
+            .values(
+                total_clicks=Link.total_clicks
+                + select(func.count())
+                .select_from(inserted)
+                .where(inserted.c.link_id == Link.id)
+                .scalar_subquery()
+            )
+        )
+
+    async def persist_batch(
+        self,
+        records: Iterable[dict[str, Any]],
+    ) -> tuple[list[str], list[str]]:
+        """Store a batch of click events and report the outcome.
+
+        Returns the message ids that were stored and the message ids that
+        could not be stored. A single rejected record must never stop the
+        rest of the batch from being written, so a failed batch is retried
+        one record at a time.
+        """
+
         values = list(records)
         if not values:
-            return
-
-        statement = postgres_insert(ClickEvent).values(values)
-        statement = statement.on_conflict_do_nothing(
-            index_elements=[ClickEvent.stream_message_id],
-        )
+            return [], []
 
         async with self.session_factory() as session:
             try:
-                await session.execute(statement)
+                await session.execute(self._batch_statement(values))
                 await session.commit()
             except Exception:
                 await session.rollback()
-                raise
+                logger.exception("Click event batch failed; retrying records one by one")
+            else:
+                return [value["stream_message_id"] for value in values], []
+
+        return await self._persist_records_individually(values)
+
+    async def _persist_records_individually(
+        self,
+        values: list[dict[str, Any]],
+    ) -> tuple[list[str], list[str]]:
+        """Store records one at a time so one bad record cannot block a batch."""
+
+        persisted: list[str] = []
+        failed: list[str] = []
+
+        async with self.session_factory() as session:
+            for value in values:
+                message_id = value["stream_message_id"]
+                try:
+                    async with session.begin_nested():
+                        await session.execute(self._batch_statement([value]))
+                except Exception:
+                    logger.exception("Click event %s was rejected by the database", message_id)
+                    failed.append(message_id)
+                else:
+                    persisted.append(message_id)
+
+            try:
+                await session.commit()
+            except Exception:
+                # The connection is already unusable; the records stay
+                # pending in the stream and are retried by the next claim.
+                logger.exception("Isolated click event records could not be committed")
+                return [], [value["stream_message_id"] for value in values]
+
+        return persisted, failed
 
     async def process_messages(self, messages: list[StreamMessage]) -> bool:
         if not messages:
             return True
 
+        records: list[dict[str, Any]] = []
+        rejected: list[str] = []
+        for message_id, fields in messages:
+            try:
+                records.append(self.build_click_record(message_id, fields))
+            except Exception:
+                # A malformed payload can never be stored. It is left
+                # pending so it stays visible for inspection instead of
+                # being silently dropped, and it no longer blocks the
+                # healthy records in the same batch.
+                logger.exception("Click event %s could not be parsed", message_id)
+                rejected.append(message_id)
+
         try:
-            records = [self.build_click_record(message_id, fields) for message_id, fields in messages]
-            await self.persist_batch(records)
+            persisted, failed = await self.persist_batch(records)
         except Exception:
             logger.exception("Click event batch failed; leaving messages pending for retry")
             return False
 
-        message_ids = [message_id for message_id, _fields in messages]
-        try:
-            acknowledged = await self.redis.xack(
-                self.stream_name,
-                self.consumer_group,
-                *message_ids,
-            )
-            if int(acknowledged) != len(message_ids):
-                logger.error("Only %s of %s click events were acknowledged", acknowledged, len(message_ids))
+        if persisted:
+            try:
+                acknowledged = await self.redis.xack(
+                    self.stream_name,
+                    self.consumer_group,
+                    *persisted,
+                )
+                if int(acknowledged) != len(persisted):
+                    logger.error(
+                        "Only %s of %s click events were acknowledged",
+                        acknowledged,
+                        len(persisted),
+                    )
+                    return False
+            except Exception:
+                # PostgreSQL has already committed. The unique stream_message_id
+                # makes a later retry idempotent, and the pending entries remain
+                # claimable instead of being silently lost.
+                logger.exception("Click event acknowledgement failed; messages remain pending")
                 return False
-        except Exception:
-            # PostgreSQL has already committed. The unique stream_message_id
-            # makes a later retry idempotent, and the pending entries remain
-            # claimable instead of being silently lost.
-            logger.exception("Click event acknowledgement failed; messages remain pending")
+
+        if failed or rejected:
+            logger.error(
+                "%s click events could not be stored and stay pending for retry",
+                len(failed) + len(rejected),
+            )
             return False
+
         return True
 
     async def run_once(self) -> bool:

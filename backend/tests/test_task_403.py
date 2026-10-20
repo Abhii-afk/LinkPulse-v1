@@ -1,6 +1,7 @@
 from collections.abc import AsyncIterator, Callable
 from datetime import datetime, timezone
 from io import BytesIO
+from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
@@ -15,6 +16,11 @@ from app.main import app
 from app.models.link import Link
 from app.models.domain_blocklist import DomainBlocklist
 from app.models.user import User, UserRole
+from tests.redis_fakes import (
+    SlidingWindowCounter,
+    is_rate_limit_call,
+    rate_limit_arguments,
+)
 
 
 class FakeResult:
@@ -28,6 +34,7 @@ class FakeResult:
 class FakeRedis:
     def __init__(self) -> None:
         self.values: dict[str, str] = {}
+        self.rate_limiter = SlidingWindowCounter()
 
     async def set(self, key: str, value: str, *, ex: int | None = None) -> bool:
         self.values[key] = value
@@ -35,6 +42,11 @@ class FakeRedis:
 
     async def delete(self, key: str) -> int:
         return int(self.values.pop(key, None) is not None)
+
+    async def eval(self, _script: str, number_of_keys: int, *args: Any) -> list[int]:
+        # Bulk import is rate limited, so the limiter is the only caller.
+        assert is_rate_limit_call(number_of_keys)
+        return self.rate_limiter.apply(*rate_limit_arguments(args))
 
 
 class FakeSession:

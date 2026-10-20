@@ -15,7 +15,11 @@ from app.core.security import hash_password
 from app.models.campaign import Campaign
 from app.models.link import Link
 from app.schemas.link import CreateLinkRequest
-from app.services.domain_blocklist import BlockedDestinationError, find_blocked_domain
+from app.services.domain_blocklist import (
+    BlockedDestinationError,
+    InvalidBlockedDomainError,
+    find_blocked_domain,
+)
 
 
 LINK_CACHE_PREFIX = "link:"
@@ -41,6 +45,10 @@ class LinkCacheUnavailableError(RuntimeError):
 
 class AliasGenerationError(RuntimeError):
     """Raised when a generated alias cannot be made unique."""
+
+
+class InvalidDestinationError(ValueError):
+    """Raised when a destination URL cannot be inspected for blocklist hits."""
 
 
 def generate_short_code() -> str:
@@ -116,10 +124,16 @@ async def create_link(
     redis: Redis,
     generate_alias: Callable[[], str] = generate_short_code,
 ) -> Link:
-    blocked_domain = await find_blocked_domain(
-        destination_url=str(payload.destination_url),
-        db=db,
-    )
+    try:
+        blocked_domain = await find_blocked_domain(
+            destination_url=str(payload.destination_url),
+            db=db,
+        )
+    except InvalidBlockedDomainError as error:
+        # A destination whose host cannot be normalised (empty label, an
+        # over-long label, an unusable IP literal) can never be matched
+        # against the blocklist, so it is rejected instead of raising.
+        raise InvalidDestinationError(str(error)) from error
     if blocked_domain is not None:
         raise BlockedDestinationError(blocked_domain.domain)
 

@@ -1,6 +1,6 @@
 """create domain blocklist and link moderation reason
 
-Revision ID: 0004_create_domain_blocklist_and_moderation
+Revision ID: 0004_create_domain_blocklist
 Revises: 0003_create_click_events
 Create Date: 2026-10-20
 
@@ -11,7 +11,9 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision: str = "0004_create_domain_blocklist_and_moderation"
+# The identifier must stay within the 32 character width of Alembic's
+# version_num column, otherwise `alembic upgrade head` cannot record it.
+revision: str = "0004_create_domain_blocklist"
 down_revision: Union[str, Sequence[str], None] = "0003_create_click_events"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None

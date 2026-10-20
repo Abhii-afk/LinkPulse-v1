@@ -1,24 +1,39 @@
-from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile, status
+from fastapi.responses import HTMLResponse, RedirectResponse
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import UserOrAdmin
+from app.core.link_session import (
+    LinkSessionConfigurationError,
+    cookie_name,
+    issue_link_session_token,
+)
+from app.core.rate_limit import (
+    enforce_link_creation_rate_limit,
+    enforce_password_attempt_rate_limit,
+)
 from app.core.redis_client import get_redis
+from app.core.security import verify_password
 from app.models.link import Link
 from app.models.user import User
 from app.schemas.link import BulkImportResponse, CreateLinkRequest, LinkResponse
 from app.services.bulk import InvalidCsvError, import_links_from_csv
+from app.services.challenge import render_password_challenge
 from app.services.domain_blocklist import BlockedDestinationError
 from app.services.qr import LinkNotFoundError, generate_qr_code
 from app.services.links import (
     AliasGenerationError,
     CampaignNotFoundError,
     DuplicateAliasError,
+    InvalidDestinationError,
     LinkCacheUnavailableError,
     create_link,
 )
+from app.services.redirect import get_routing_metadata
 
 
 router = APIRouter(prefix="/api/v1/links", tags=["links"])
@@ -50,6 +65,7 @@ async def create_link_endpoint(
     current_user: UserOrAdmin,
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
+    _rate_limit: None = Depends(enforce_link_creation_rate_limit),
 ) -> LinkResponse:
     try:
         link = await create_link(
@@ -67,6 +83,11 @@ async def create_link_endpoint(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(error),
+        ) from None
+    except InvalidDestinationError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Destination URL is invalid: {error}",
         ) from None
     except DuplicateAliasError:
         raise HTTPException(
@@ -93,6 +114,7 @@ async def bulk_import_endpoint(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
+    _rate_limit: None = Depends(enforce_link_creation_rate_limit),
 ) -> BulkImportResponse:
     content = await file.read()
     try:
@@ -107,6 +129,68 @@ async def bulk_import_endpoint(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(error),
         ) from None
+
+
+@router.post("/verify-password", status_code=status.HTTP_303_SEE_OTHER)
+async def verify_link_password_endpoint(
+    request: Request,
+    short_code: str = Form(...),
+    password: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+) -> Response:
+    """Check a link password and issue the signed challenge cookie.
+
+    This endpoint is public: it is the visitor facing half of the password
+    challenge and never exposes the stored hash.
+    """
+
+    await enforce_password_attempt_rate_limit(
+        request=request,
+        redis=redis,
+        short_code=short_code,
+    )
+
+    try:
+        metadata = await get_routing_metadata(short_code=short_code, redis=redis, db=db)
+    except (RedisError, ValueError):
+        metadata = None
+
+    stored_hash = metadata.get("password_hash") if metadata else None
+    if not stored_hash:
+        return HTMLResponse(
+            content=render_password_challenge(
+                short_code,
+                "This link is not available or is not password protected.",
+            ),
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+
+    if not verify_password(password, str(stored_hash)):
+        return HTMLResponse(
+            content=render_password_challenge(short_code, "Incorrect password."),
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    try:
+        session_token = issue_link_session_token(short_code)
+    except LinkSessionConfigurationError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Link passwords are not configured",
+        ) from None
+
+    response = RedirectResponse(url=f"/{short_code}", status_code=status.HTTP_303_SEE_OTHER)
+    response.set_cookie(
+        key=cookie_name(short_code),
+        value=session_token,
+        max_age=settings.link_session_ttl_seconds,
+        httponly=True,
+        secure=settings.cookies_require_secure_transport,
+        samesite="lax",
+        path=f"/{short_code}",
+    )
+    return response
 
 
 @router.get("/{short_code}/qr")

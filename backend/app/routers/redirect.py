@@ -9,7 +9,9 @@ from redis.exceptions import RedisError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.link_session import cookie_name, verify_link_session_token
 from app.core.redis_client import get_redis
+from app.services.challenge import render_password_challenge
 from app.services.redirect import (
     InvalidCachedLinkError,
     click_event,
@@ -43,16 +45,8 @@ def _is_expired(expires_at: Any) -> bool:
 
 
 def _password_challenge(short_code: str) -> HTMLResponse:
-    safe_code = escape(short_code, quote=True)
     return HTMLResponse(
-        content=(
-            "<form method=\"post\" action=\"/api/v1/links/verify-password\">"
-            f"<input type=\"hidden\" name=\"short_code\" value=\"{safe_code}\" />"
-            "<input type=\"password\" name=\"password\" "
-            "placeholder=\"Enter Link Password\" required />"
-            "<button type=\"submit\">Access Destination</button>"
-            "</form>"
-        ),
+        content=render_password_challenge(short_code),
         status_code=status.HTTP_401_UNAUTHORIZED,
     )
 
@@ -96,10 +90,10 @@ async def execute_redirect(
         ) from None
 
     if metadata.get("has_password") or metadata.get("password_hash"):
-        # Password verification belongs to the password challenge flow. The
-        # redirect handler only accepts the already-issued, opaque session
-        # cookie and never compares a submitted password with stored data.
-        if not request.cookies.get(f"auth_{short_code}"):
+        # The challenge is only skipped for a cookie this server signed for
+        # this exact short code. A cookie the visitor made up is ignored.
+        session_token = request.cookies.get(cookie_name(short_code))
+        if not session_token or not verify_link_session_token(session_token, short_code):
             return _password_challenge(short_code)
 
     try:

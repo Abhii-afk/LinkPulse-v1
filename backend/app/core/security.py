@@ -5,7 +5,11 @@ from uuid import UUID
 import bcrypt
 import jwt
 
-from app.core.config import settings
+from app.core.config import (
+    MINIMUM_JWT_SECRET_LENGTH,
+    SUPPORTED_JWT_ALGORITHMS,
+    settings,
+)
 from app.models.user import User
 
 
@@ -15,6 +19,10 @@ SUPPORTED_ROLES = {"visitor", "user", "admin"}
 
 class InvalidTokenError(ValueError):
     """Raised when an access token cannot be trusted."""
+
+
+class SecurityConfigurationError(RuntimeError):
+    """Raised when the deployment is missing required security configuration."""
 
 
 def normalize_email(email: str) -> str:
@@ -43,9 +51,22 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 
 def _jwt_secret() -> str:
-    if not settings.jwt_secret:
-        raise RuntimeError("JWT_SECRET is not configured")
-    return settings.jwt_secret
+    secret = settings.jwt_secret
+    if not secret:
+        raise SecurityConfigurationError("JWT_SECRET is not configured")
+    if len(secret) < MINIMUM_JWT_SECRET_LENGTH:
+        raise SecurityConfigurationError(
+            f"JWT_SECRET must be at least {MINIMUM_JWT_SECRET_LENGTH} characters long"
+        )
+    return secret
+
+
+def _jwt_algorithm() -> str:
+    algorithm = settings.jwt_algorithm
+    if algorithm not in SUPPORTED_JWT_ALGORITHMS:
+        allowed = ", ".join(sorted(SUPPORTED_JWT_ALGORITHMS))
+        raise SecurityConfigurationError(f"JWT_ALGORITHM must be one of {allowed}")
+    return algorithm
 
 
 def create_access_token(user: User) -> str:
@@ -58,7 +79,7 @@ def create_access_token(user: User) -> str:
         "iat": now,
         "exp": expires_at,
     }
-    return jwt.encode(payload, _jwt_secret(), algorithm=settings.jwt_algorithm)
+    return jwt.encode(payload, _jwt_secret(), algorithm=_jwt_algorithm())
 
 
 def decode_access_token(token: str) -> dict[str, Any]:
@@ -66,10 +87,10 @@ def decode_access_token(token: str) -> dict[str, Any]:
         payload = jwt.decode(
             token,
             _jwt_secret(),
-            algorithms=[settings.jwt_algorithm],
+            algorithms=[_jwt_algorithm()],
             options={"require": ["sub", "email", "role", "iat", "exp"]},
         )
-    except (jwt.PyJWTError, RuntimeError) as error:
+    except (jwt.PyJWTError, SecurityConfigurationError) as error:
         raise InvalidTokenError from error
 
     if not isinstance(payload.get("sub"), str) or not isinstance(payload.get("email"), str):

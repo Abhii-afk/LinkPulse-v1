@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import (
+    SecurityConfigurationError,
     create_access_token,
     hash_password,
     normalize_email,
@@ -63,4 +64,14 @@ async def login(payload: Credentials, db: AsyncSession = Depends(get_db)) -> Tok
             detail="Incorrect email or password",
         )
 
-    return TokenResponse(access_token=create_access_token(user), user=user_response(user))
+    try:
+        access_token = create_access_token(user)
+    except SecurityConfigurationError:
+        # The deployment is missing a usable signing secret. Say so plainly
+        # instead of returning an opaque server error.
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication is not configured",
+        ) from None
+
+    return TokenResponse(access_token=access_token, user=user_response(user))
