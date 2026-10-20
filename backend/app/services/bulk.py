@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.link import BulkImportError, BulkImportResponse, CreateLinkRequest
+from app.services.domain_blocklist import BlockedDestinationError
 from app.services.links import (
     AliasGenerationError,
     CampaignNotFoundError,
@@ -163,6 +164,9 @@ async def import_links_from_csv(
         except DuplicateAliasError:
             alias_label = alias or "generated alias"
             errors.append(_row_error(row_number, f"Alias '{alias_label}' is already taken"))
+            continue
+        except BlockedDestinationError as error:
+            errors.append(_row_error(row_number, str(error)))
             continue
         except CampaignNotFoundError:
             errors.append(_row_error(row_number, "Campaign not found or not owned by current user"))

@@ -15,6 +15,7 @@ from app.core.security import hash_password
 from app.models.campaign import Campaign
 from app.models.link import Link
 from app.schemas.link import CreateLinkRequest
+from app.services.domain_blocklist import BlockedDestinationError, find_blocked_domain
 
 
 LINK_CACHE_PREFIX = "link:"
@@ -115,6 +116,13 @@ async def create_link(
     redis: Redis,
     generate_alias: Callable[[], str] = generate_short_code,
 ) -> Link:
+    blocked_domain = await find_blocked_domain(
+        destination_url=str(payload.destination_url),
+        db=db,
+    )
+    if blocked_domain is not None:
+        raise BlockedDestinationError(blocked_domain.domain)
+
     if payload.campaign_id is not None:
         campaign = await _campaign_for_user(db, payload.campaign_id, user_id)
         if campaign is None:

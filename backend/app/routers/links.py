@@ -10,6 +10,7 @@ from app.models.link import Link
 from app.models.user import User
 from app.schemas.link import BulkImportResponse, CreateLinkRequest, LinkResponse
 from app.services.bulk import InvalidCsvError, import_links_from_csv
+from app.services.domain_blocklist import BlockedDestinationError
 from app.services.qr import LinkNotFoundError, generate_qr_code
 from app.services.links import (
     AliasGenerationError,
@@ -61,6 +62,11 @@ async def create_link_endpoint(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Campaign not found",
+        ) from None
+    except BlockedDestinationError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(error),
         ) from None
     except DuplicateAliasError:
         raise HTTPException(

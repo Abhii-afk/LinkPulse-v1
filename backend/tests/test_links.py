@@ -12,6 +12,7 @@ from app.core.redis_client import get_redis
 from app.core.security import create_access_token, hash_password, verify_password
 from app.main import app
 from app.models.campaign import Campaign
+from app.models.domain_blocklist import DomainBlocklist
 from app.models.link import Link
 from app.models.user import User, UserRole
 
@@ -55,6 +56,8 @@ class FakeSession:
         if entity is Campaign:
             if self.campaign is not None and self.campaign.user_id == self.user.id:
                 return FakeResult(self.campaign)
+            return FakeResult(None)
+        if entity is DomainBlocklist:
             return FakeResult(None)
         if entity is Link:
             return FakeResult(self.existing_link)

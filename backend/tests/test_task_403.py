@@ -13,6 +13,7 @@ from app.core.redis_client import get_redis
 from app.core.security import create_access_token, hash_password, verify_password
 from app.main import app
 from app.models.link import Link
+from app.models.domain_blocklist import DomainBlocklist
 from app.models.user import User, UserRole
 
 
@@ -46,6 +47,8 @@ class FakeSession:
         entity = statement.column_descriptions[0]["entity"]  # type: ignore[union-attr]
         if entity is User:
             return FakeResult(self.user)
+        if entity is DomainBlocklist:
+            return FakeResult(None)
         if entity is Link:
             parameters = statement.compile().params  # type: ignore[union-attr]
             for short_code, link in self.existing_links.items():
