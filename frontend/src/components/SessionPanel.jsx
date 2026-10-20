@@ -9,7 +9,10 @@ export default function SessionPanel({ accessToken, userRole, onSignIn, onSignOu
   if (accessToken) {
     return (
       <div className="session-panel">
-        <span className="session-role">{userRole || "member"}</span>
+        <span className="session-state">
+          <span className="session-dot is-authenticated" aria-hidden="true" />
+          Signed in as {userRole || "member"}
+        </span>
         <button className="button button-ghost" type="button" onClick={() => onSignOut?.()}>
           Sign out
         </button>

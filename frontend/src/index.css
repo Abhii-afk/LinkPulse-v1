@@ -78,11 +78,15 @@ a {
 
 .topbar {
   justify-content: space-between;
-  gap: 1rem;
+  gap: 1.25rem;
+  margin-bottom: 1.75rem;
+  flex-wrap: wrap;
 }
 
 .brand-lockup {
   gap: 0.75rem;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .brand-mark {
@@ -113,12 +117,14 @@ a {
   margin-top: 0.2rem;
   color: var(--muted);
   font-size: 0.75rem;
+  white-space: nowrap;
 }
 
 .session-state {
   gap: 0.5rem;
   color: var(--muted-strong);
   font-size: 0.78rem;
+  white-space: nowrap;
 }
 
 .session-dot {
@@ -137,16 +143,25 @@ a {
 .session-area {
   display: flex;
   align-items: center;
-  gap: 0.9rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  gap: 0.75rem;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
 }
 
 .app-nav {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  flex-wrap: wrap;
+  flex: 1 1 auto;
+  justify-content: center;
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.app-nav::-webkit-scrollbar {
+  display: none;
 }
 
 .app-nav-item {
@@ -155,8 +170,10 @@ a {
   background: transparent;
   color: var(--muted-strong);
   cursor: pointer;
+  flex: 0 0 auto;
   font-size: 0.82rem;
   padding: 0.35rem 0.85rem;
+  white-space: nowrap;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
@@ -291,12 +308,18 @@ a {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
 }
 
+.session-field {
+  display: flex;
+  min-width: 0;
+}
+
 .session-field input {
-  width: 11rem;
+  width: 9.5rem;
+  min-width: 0;
   padding: 0.45rem 0.7rem;
   border: 1px solid var(--line-strong);
   border-radius: 10px;
@@ -309,15 +332,6 @@ a {
   outline: none;
   border-color: var(--accent-strong);
   box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
-}
-
-.session-role {
-  padding: 0.3rem 0.65rem;
-  border-radius: 999px;
-  border: 1px solid var(--line-strong);
-  color: var(--muted-strong);
-  font-size: 0.75rem;
-  text-transform: capitalize;
 }
 
 .session-error {
@@ -1016,6 +1030,19 @@ a {
   }
 }
 
+@media (max-width: 980px) {
+  .app-nav {
+    order: 3;
+    width: 100%;
+    flex: 1 0 100%;
+    justify-content: flex-start;
+  }
+
+  .session-area {
+    margin-left: auto;
+  }
+}
+
 @media (max-width: 700px) {
   .app-shell {
     width: min(100% - 28px, 1120px);
@@ -1033,6 +1060,19 @@ a {
   }
 
   .button-large {
+    width: 100%;
+  }
+
+  .session-panel {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .session-field {
+    flex: 1 1 100%;
+  }
+
+  .session-field input {
     width: 100%;
   }
 

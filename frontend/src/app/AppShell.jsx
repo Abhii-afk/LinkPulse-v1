@@ -58,13 +58,6 @@ export default function AppShell({
         </nav>
 
         <div className="session-area">
-          <div
-            className="session-state"
-            title={accessToken ? "Authenticated session" : "No authenticated session"}
-          >
-            <span className={`session-dot${accessToken ? " is-authenticated" : ""}`} aria-hidden="true" />
-            {accessToken ? `Signed in as ${userRole || "member"}` : "Sign in to publish"}
-          </div>
           <SessionPanel
             accessToken={accessToken}
             userRole={userRole}

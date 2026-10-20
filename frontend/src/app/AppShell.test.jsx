@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import AppShell from "./AppShell.jsx";
 import LinksPage from "../pages/LinksPage.jsx";
+import SessionPanel from "../components/SessionPanel.jsx";
 import { DEFAULT_ROUTE, ROUTES, readRouteFromHash } from "./useRoute.js";
 
 function findChildren(node, type) {
@@ -74,8 +75,9 @@ describe("the workspace shell", () => {
 
   it("shows the sign in form when there is no session", () => {
     const view = AppShell({ route: "links", accessToken: null });
-    const text = JSON.stringify(view.props.children);
+    const panels = findChildren(view, SessionPanel);
 
-    expect(text).toContain("Sign in to publish");
+    expect(panels).toHaveLength(1);
+    expect(panels[0].props.accessToken).toBeNull();
   });
 });
