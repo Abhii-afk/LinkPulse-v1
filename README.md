@@ -133,7 +133,6 @@ redirects immediately — while the historical analytics stay intact.
 | API | <https://api-production-1648a.up.railway.app> |
 | API health | <https://api-production-1648a.up.railway.app/health> |
 | API docs (Swagger UI) | <https://api-production-1648a.up.railway.app/docs> |
-| A live short link | <https://api-production-1648a.up.railway.app/demo-launch> |
 
 The deployment is running the same commit as this repository, with the
 database migrated, the worker running and a seeded demo workspace.
