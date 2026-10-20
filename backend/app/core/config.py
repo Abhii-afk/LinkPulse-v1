@@ -1,4 +1,5 @@
 from functools import lru_cache
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -73,6 +74,32 @@ class Settings(BaseSettings):
             for origin in self.cors_allowed_origins.split(",")
             if origin.strip()
         ]
+
+    @property
+    def normalized_database_url(self) -> str:
+        """The database URL with the driver specific options translated.
+
+        Managed Postgres providers hand out libpq style URLs that end in
+        ``?sslmode=require``. The asyncpg driver does not know that option
+        and refuses the connection with "connect() got an unexpected keyword
+        argument 'sslmode'". Renaming it to ``ssl`` lets the URL be pasted
+        exactly as the provider shows it.
+        """
+
+        if "sslmode=" not in self.database_url:
+            return self.database_url
+
+        parts = urlsplit(self.database_url)
+        query = parse_qsl(parts.query, keep_blank_values=True)
+        if any(key == "ssl" for key, _value in query):
+            return self.database_url
+
+        translated = [
+            ("ssl" if key == "sslmode" else key, value) for key, value in query
+        ]
+        return urlunsplit(
+            (parts.scheme, parts.netloc, parts.path, urlencode(translated), parts.fragment)
+        )
 
 
 @lru_cache

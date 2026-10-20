@@ -13,7 +13,7 @@ this shape:
 
 | Component | Provider | Configuration in this repository |
 | --- | --- | --- |
-| Frontend (React SPA) | Vercel | `vercel.json` at the repository root |
+| Frontend (React SPA) | Vercel | `frontend/vercel.json`, Vercel Root Directory `frontend` |
 | API (FastAPI) | Railway | `railway.json` at the repository root, `backend/Dockerfile` |
 | Analytics worker | Railway (second service) | same `backend/Dockerfile`, different start command |
 | Cache and queue (Redis) | Railway Redis plugin | environment variables only |
@@ -167,32 +167,50 @@ this repository, so no hosted URL is claimed here.
 ### Frontend on Vercel
 
 1. Import the repository into Vercel.
-2. Set **Root Directory** to `frontend`. `vercel.json` sits at the repository
-   root, so Vercel will not find it from `frontend/`; copy the same file
-   into `frontend/vercel.json` or set the build command to
-   `cd frontend && npm ci && npm run build` with the output directory
-   `frontend/dist`.
+2. Set **Root Directory** to `frontend`. The Vercel configuration lives in
+   `frontend/vercel.json`, so Vercel picks it up from there. It sets the
+   build command, the output directory and the single page application
+   fallback.
 3. Set `VITE_API_BASE_URL` to the public API origin, for example
-   `https://linkpulse-api.up.railway.app`.
-4. Deploy. The SPA fallback is already configured in `vercel.json`.
+   `https://linkpulse-api.up.railway.app`. The value is baked into the
+   bundle at build time, so the project has to be redeployed after it
+   changes.
+4. Deploy.
 
 ### API and worker on Railway
+
+`railway.json` only carries the build configuration, because both services
+are built from the same `backend/Dockerfile` and need different start
+commands.
 
 1. Create a Railway project from the repository.
 2. Add the PostgreSQL plugin (or copy the Neon connection string) and the
    Redis plugin.
-3. Create the **api** service. Railway picks up `railway.json` and builds
-   `backend/Dockerfile`. Set `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`,
-   `PUBLIC_BASE_URL` and `APP_ENV=production`.
+3. Create the **api** service. Railway builds `backend/Dockerfile` and the
+   image starts uvicorn by default. Set the variables `DATABASE_URL`,
+   `REDIS_URL`, `JWT_SECRET`, `LINK_SESSION_SECRET`, `PUBLIC_BASE_URL`,
+   `APP_ENV=production` and `CORS_ALLOWED_ORIGINS`.
+   Then set the health check path to `/health` and the health check timeout
+   to 45 seconds in the service settings.
 4. Create the **worker** service from the same repository and the same
-   Dockerfile, and change its start command to
-   `python -m workers.analytics_worker`. The worker needs `DATABASE_URL`,
+   Dockerfile. Change its **start command** to
+   `python -m workers.analytics_worker` and leave the health check path
+   empty, because the worker serves no HTTP. It needs `DATABASE_URL`,
    `REDIS_URL` and `JWT_SECRET`.
 5. Run the migration once, from a local machine or a one-off Railway
    command: `cd backend && alembic upgrade head` with `DATABASE_URL` pointed
    at the production database.
 6. Point the frontend's `VITE_API_BASE_URL` at the API service and redeploy
    the frontend.
+
+#### The database URL can be pasted as it is
+
+Neon, Supabase and Render hand out libpq style URLs that end in
+`?sslmode=require`. The asyncpg driver does not know that option and would
+refuse the connection with
+`connect() got an unexpected keyword argument 'sslmode'`. The application
+translates the option to `ssl` before it connects, so the connection string
+can be pasted exactly as the provider shows it.
 
 ### Alternatives
 
