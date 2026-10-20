@@ -1,0 +1,6 @@
+destination_url,custom_alias,click_limit
+https://example.com/spring-launch,clean-launch-2026,250
+https://example.com/newsletter/march,clean-newsletter-march,100
+https://example.com/early-access,clean-early-access,50
+https://example.com/limited-offer,clean-limited-offer,25
+https://example.com/webinar-replay,clean-webinar-replay,150

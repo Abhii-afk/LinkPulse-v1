@@ -195,10 +195,22 @@ a {
   padding-bottom: 3rem;
 }
 
-.import-card {
+.import-card,
+.links-card {
   display: grid;
-  gap: 1.1rem;
   padding: 1.05rem;
+}
+
+.import-card {
+  gap: 1.1rem;
+}
+
+.links-card {
+  gap: 0.4rem;
+}
+
+.links-card .table-scroll {
+  margin-top: 0.9rem;
 }
 
 .import-form {

@@ -87,7 +87,9 @@ redirects immediately — while the historical analytics stay intact.
 - Downloadable QR codes for every link you own, shown in the browser and
   saved as a PNG.
 - CSV bulk import with per-row error reporting: a bad row is reported with
-  its line number and reason, and the rest of the file still imports.
+  its line number and reason, and the rest of the file still imports. Try it
+  with [`demo/links.csv`](demo/links.csv), which has five good rows and one
+  broken row of each kind.
 - Campaigns, so the links of one launch or one newsletter can be read
   together.
 - A password challenge on protected links, carried by a short-lived,

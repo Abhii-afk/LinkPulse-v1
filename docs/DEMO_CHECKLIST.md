@@ -97,22 +97,26 @@ cookie is signed and short lived, and that guessing is rate limited.
 
 **7. Import the CSV (2:30 - 3:15)**
 
-In the terminal, sign in and import `demo/links.csv`:
+Open the **Import** section in the top navigation and upload
+[`demo/links.csv`](../demo/links.csv). Ten rows go in: five are published and
+five are rejected, each with its line number and the reason.
 
-```bash
-TOKEN=$(curl -s -X POST http://127.0.0.1:8000/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"demo@linkpulse.local","password":"demo-password-123"}' \
-  | python -c "import json,sys; print(json.load(sys.stdin)['access_token'])")
+| Row | Outcome |
+| --- | --- |
+| 2 - 6 | Imported: a link with a click cap, an expiry and a password |
+| 7 | `Destination URL is invalid: Input should be a valid URL...` |
+| 8 | `Alias 'demo-limited-offer' is duplicated in this file` |
+| 9 | `rules.click_limit: Input should be greater than or equal to 1` |
+| 10 | `rules.expires_at: Value error, expires_at must be in the future` |
+| 11 | `rules.password: String should have at least 8 characters` |
 
-curl -s -X POST http://127.0.0.1:8000/api/v1/links/bulk \
-  -H "Authorization: Bearer $TOKEN" \
-  -F "file=@demo/links.csv"
-```
+Upload it a second time to show the duplicate check against the database:
+every row now fails with `Alias '...' is already taken`.
 
-The response reports six successful imports and one rejected row, with the
-row number and the reason. Point at the `broken-row` entry: the parser
-reports what went wrong instead of failing the whole file.
+A file with only valid rows is in [`demo/links-clean.csv`](../demo/links-clean.csv).
+
+*Say:* "One bad row never stops the file. Every row is checked on its own
+and reported with its line number."
 
 **8. Follow an imported link (3:15 - 3:25)**
 
