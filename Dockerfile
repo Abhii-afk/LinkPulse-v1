@@ -29,4 +29,9 @@ EXPOSE 8000
 # The health check is left to the orchestrator on purpose: this image runs
 # both the API, which serves HTTP, and the worker, which does not. Compose
 # and the deployment provider set the probe that fits the service.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+#
+# The command is in shell form on purpose. The exec form does not expand
+# variables, so a platform that assigns the port through $PORT would hand
+# the literal string to uvicorn and it would refuse to start. The default
+# keeps the image working on its own.
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
