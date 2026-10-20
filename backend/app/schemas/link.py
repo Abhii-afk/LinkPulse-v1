@@ -37,6 +37,7 @@ class LinkResponse(BaseModel):
     id: UUID
     short_code: str
     short_url: str
+    qr_code_url: str
     destination_url: str
     campaign_id: UUID | None
     expires_at: datetime | None
@@ -46,3 +47,15 @@ class LinkResponse(BaseModel):
     is_abusive: bool
     password_protected: bool
     created_at: datetime
+
+
+class BulkImportError(BaseModel):
+    row: int = Field(ge=1)
+    error: str = Field(min_length=1)
+
+
+class BulkImportResponse(BaseModel):
+    total_processed: int = Field(ge=0)
+    successful_imports: int = Field(ge=0)
+    failed_imports: int = Field(ge=0)
+    errors: list[BulkImportError] = Field(default_factory=list)
