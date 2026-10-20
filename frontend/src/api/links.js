@@ -1,4 +1,4 @@
-import { requestJson } from "./client.js";
+import { requestBlob, requestJson, requestMultipart } from "./client.js";
 
 export const ALIAS_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 
@@ -109,11 +109,17 @@ export function buildCreateLinkPayload(form) {
     rules.password = form.password;
   }
 
-  return {
+  const payload = {
     destination_url: form.destinationUrl.trim(),
     ...(alias ? { custom_alias: alias } : {}),
     rules,
   };
+
+  if (form.campaignId) {
+    payload.campaign_id = form.campaignId;
+  }
+
+  return payload;
 }
 
 export async function createLink(payload, { accessToken, fetchImpl } = {}) {
@@ -123,4 +129,21 @@ export async function createLink(payload, { accessToken, fetchImpl } = {}) {
     accessToken,
     fetchImpl,
   });
+}
+
+export async function listLinks({ accessToken, fetchImpl } = {}) {
+  return requestJson("/api/v1/links", { accessToken, fetchImpl });
+}
+
+export async function fetchQrCode(shortCode, { accessToken, fetchImpl } = {}) {
+  return requestBlob(`/api/v1/links/${encodeURIComponent(shortCode)}/qr`, {
+    accessToken,
+    fetchImpl,
+  });
+}
+
+export async function importLinksFromCsv({ file, accessToken, fetchImpl } = {}) {
+  const formData = new FormData();
+  formData.append("file", file);
+  return requestMultipart("/api/v1/links/bulk", { formData, accessToken, fetchImpl });
 }

@@ -26,24 +26,14 @@ from app.services.domain_blocklist import (
     add_blocked_domain,
     list_blocked_domains,
 )
-from app.services.links import invalidate_link_cache
+from app.services.links import invalidate_link_cache, link_status
 
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
 
 def _link_status(link: Link) -> Literal["active", "disabled", "abusive", "expired"]:
-    if not link.is_active:
-        return "disabled"
-    if link.is_abusive:
-        return "abusive"
-    if link.expires_at is not None:
-        expires_at = link.expires_at
-        if expires_at.tzinfo is None or expires_at.utcoffset() is None:
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
-        if expires_at <= datetime.now(timezone.utc):
-            return "expired"
-    return "active"
+    return link_status(link)
 
 
 def _admin_link_response(link: Link, *, total_clicks: int | None = None) -> AdminLinkResponse:

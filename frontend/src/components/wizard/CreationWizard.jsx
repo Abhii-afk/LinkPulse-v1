@@ -60,6 +60,7 @@ function SuccessState({ link, onClose, onReset }) {
 export default function CreationWizard({
   isOpen,
   accessToken = null,
+  campaigns = [],
   onClose,
   onCreated,
   createLinkRequest = createLink,
@@ -155,6 +156,7 @@ export default function CreationWizard({
                 form={state.form}
                 fieldErrors={state.fieldErrors}
                 aliasTaken={state.aliasTaken}
+                campaigns={campaigns}
                 onChange={handleChange}
                 onNext={handleNext}
               />

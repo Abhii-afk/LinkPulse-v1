@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, HttpUrl, field_validator
@@ -46,6 +47,26 @@ class LinkResponse(BaseModel):
     is_active: bool
     is_abusive: bool
     password_protected: bool
+    created_at: datetime
+
+
+class LinkListItem(BaseModel):
+    """One link in the owner's list, with everything the workspace needs."""
+
+    id: UUID
+    short_code: str
+    short_url: str
+    qr_code_url: str
+    destination_url: str
+    campaign_id: UUID | None = None
+    campaign_name: str | None = None
+    total_clicks: int
+    click_limit: int | None = None
+    expires_at: datetime | None = None
+    is_active: bool
+    is_abusive: bool
+    password_protected: bool
+    status: Literal["active", "disabled", "abusive", "expired"] = "active"
     created_at: datetime
 
 

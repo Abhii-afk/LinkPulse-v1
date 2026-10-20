@@ -18,6 +18,7 @@ from app.schemas.analytics import (
     LinkAnalyticsInfo,
     TopLinkAnalytics,
 )
+from app.services.links import link_status, link_status_from_values
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,11 +86,7 @@ def _optional_row_value(row: Any, name: str, position: int, default: Any = None)
 
 
 def _link_status(link: Link) -> Literal["active", "disabled", "abusive", "expired"]:
-    return _status_from_values(
-        is_active=link.is_active,
-        is_abusive=link.is_abusive,
-        expires_at=link.expires_at,
-    )
+    return link_status(link)
 
 
 def _status_from_values(
@@ -98,17 +95,11 @@ def _status_from_values(
     is_abusive: bool,
     expires_at: datetime | None,
 ) -> Literal["active", "disabled", "abusive", "expired"]:
-    if not is_active:
-        return "disabled"
-    if is_abusive:
-        return "abusive"
-    if expires_at is not None:
-        expiration = expires_at
-        if expiration.tzinfo is None or expiration.utcoffset() is None:
-            expiration = expiration.replace(tzinfo=timezone.utc)
-        if expiration <= datetime.now(timezone.utc):
-            return "expired"
-    return "active"
+    return link_status_from_values(
+        is_active=is_active,
+        is_abusive=is_abusive,
+        expires_at=expires_at,
+    )
 
 
 def _link_info(link: Link) -> LinkAnalyticsInfo:
@@ -223,6 +214,10 @@ async def get_analytics(
 
     device = func.coalesce(ClickEvent.device_type, "Unknown").label("value")
     browser = func.coalesce(ClickEvent.browser, "Unknown").label("value")
+    # A click without a referrer came from a direct visit, not from nowhere.
+    referrer = func.coalesce(
+        func.nullif(ClickEvent.referrer, ""), "Direct"
+    ).label("value")
     device_breakdown = await _breakdown(
         db,
         _event_query(
@@ -244,6 +239,19 @@ async def get_analytics(
         .where(*event_conditions)
         .group_by(browser)
         .order_by(func.count(ClickEvent.id).desc(), browser)
+        .limit(10),
+        total_clicks=total_clicks,
+    )
+
+    referrer_breakdown = await _breakdown(
+        db,
+        _event_query(
+            referrer,
+            func.count(ClickEvent.id).label("clicks"),
+        )
+        .where(*event_conditions)
+        .group_by(referrer)
+        .order_by(func.count(ClickEvent.id).desc(), referrer)
         .limit(10),
         total_clicks=total_clicks,
     )
@@ -310,5 +318,6 @@ async def get_analytics(
         clicks_over_time=clicks_over_time,
         device_breakdown=device_breakdown,
         browser_breakdown=browser_breakdown,
+        referrer_breakdown=referrer_breakdown,
         top_links=top_links,
     )

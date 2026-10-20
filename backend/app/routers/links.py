@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Resp
 from fastapi.responses import HTMLResponse, RedirectResponse
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -18,9 +19,10 @@ from app.core.rate_limit import (
 )
 from app.core.redis_client import get_redis
 from app.core.security import verify_password
+from app.models.campaign import Campaign
 from app.models.link import Link
 from app.models.user import User
-from app.schemas.link import BulkImportResponse, CreateLinkRequest, LinkResponse
+from app.schemas.link import BulkImportResponse, CreateLinkRequest, LinkListItem, LinkResponse
 from app.services.bulk import InvalidCsvError, import_links_from_csv
 from app.services.challenge import render_password_challenge
 from app.services.domain_blocklist import BlockedDestinationError
@@ -32,6 +34,7 @@ from app.services.links import (
     InvalidDestinationError,
     LinkCacheUnavailableError,
     create_link,
+    link_status,
 )
 from app.services.redirect import get_routing_metadata
 
@@ -57,6 +60,48 @@ def link_response(link: Link) -> LinkResponse:
         password_protected=link.password_hash is not None,
         created_at=link.created_at,
     )
+
+
+@router.get("", response_model=list[LinkListItem])
+async def list_own_links(
+    current_user: UserOrAdmin,
+    db: AsyncSession = Depends(get_db),
+) -> list[LinkListItem]:
+    """List the links the signed in user owns, newest first.
+
+    The list is scoped to the owner, so a user never sees another user's
+    links. Disabled and expired links stay in the list together with their
+    history.
+    """
+
+    result = await db.execute(
+        select(Link, Campaign.name)
+        .outerjoin(Campaign, Campaign.id == Link.campaign_id)
+        .where(Link.user_id == current_user.id)
+        .order_by(Link.created_at.desc())
+    )
+
+    base_url = settings.public_base_url.rstrip("/")
+    return [
+        LinkListItem(
+            id=link.id,
+            short_code=link.short_code,
+            short_url=f"{base_url}/{link.short_code}",
+            qr_code_url=f"{base_url}/api/v1/links/{link.short_code}/qr",
+            destination_url=link.destination_url,
+            campaign_id=link.campaign_id,
+            campaign_name=campaign_name,
+            total_clicks=link.total_clicks,
+            click_limit=link.click_limit,
+            expires_at=link.expires_at,
+            is_active=link.is_active,
+            is_abusive=link.is_abusive,
+            password_protected=link.password_hash is not None,
+            status=link_status(link),
+            created_at=link.created_at,
+        )
+        for link, campaign_name in result.all()
+    ]
 
 
 @router.post("", response_model=LinkResponse, status_code=status.HTTP_201_CREATED)

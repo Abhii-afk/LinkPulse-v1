@@ -165,6 +165,7 @@ export default function AnalyticsDashboard({
         <div className="breakdown-stack">
           <BreakdownChart title="Device breakdown" kicker="Audience" items={data?.device_breakdown} />
           <BreakdownChart title="Browser breakdown" kicker="Clients" items={data?.browser_breakdown} />
+          <BreakdownChart title="Traffic sources" kicker="Referrers" items={data?.referrer_breakdown} />
         </div>
       </div>
 

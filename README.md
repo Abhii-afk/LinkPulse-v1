@@ -70,20 +70,26 @@ redirects immediately — while the historical analytics stay intact.
 - Fast redirects resolved from a Redis cache, with a fixed rule waterfall:
   active → not abusive → not expired → under the click cap → password challenge.
 - Click analytics: totals, unique visitors, bot filtering, traffic over
-  time, and device and browser breakdowns.
+  time, and device, browser and traffic-source breakdowns.
 - A dashboard that keeps showing history for links that were disabled or
   have expired. Nothing is ever hard deleted.
 
 **For signed-in users**
 
+- A workspace with navigation between **Links**, **Campaigns**, **Import**,
+  **Analytics** and **Settings**, so links, campaigns, QR codes and analytics
+  live in one place.
 - A two-step creation wizard: destination and alias, then the rules
   (expiry, click cap, password), with a review of the warnings before
-  publishing.
-- Custom aliases with format validation as you type, and a server-side
-  uniqueness check reported back as a conflict.
-- Downloadable QR codes for every link you own.
+  publishing, and a campaign to group the link under.
+- A list of the links you own, with their status, their campaign and how
+  close they are to their click cap, including a warning at eighty percent.
+- Downloadable QR codes for every link you own, shown in the browser and
+  saved as a PNG.
 - CSV bulk import with per-row error reporting: a bad row is reported with
   its line number and reason, and the rest of the file still imports.
+- Campaigns, so the links of one launch or one newsletter can be read
+  together.
 - A password challenge on protected links, carried by a short-lived,
   HMAC-signed cookie that is bound to one link.
 
@@ -287,10 +293,13 @@ each step took. The minute-by-minute script is in
 | `POST` | `/api/v1/auth/register` | Create an account |
 | `POST` | `/api/v1/auth/login` | Exchange credentials for a JWT |
 | `GET` | `/api/v1/user/me` | The current account |
+| `GET` | `/api/v1/links` | The links you own |
 | `POST` | `/api/v1/links` | Create a link |
 | `POST` | `/api/v1/links/bulk` | Import links from a CSV |
 | `POST` | `/api/v1/links/verify-password` | Solve a link password |
 | `GET` | `/api/v1/links/{short_code}/qr` | QR code for a link you own |
+| `GET` | `/api/v1/campaigns` | The campaigns you own |
+| `POST` | `/api/v1/campaigns` | Create a campaign |
 | `GET` | `/api/v1/analytics/overview` | Your analytics |
 | `GET` | `/api/v1/links/{link_id}/analytics` | Analytics for one link |
 | `GET` | `/api/v1/admin/links` | Every link on the platform |

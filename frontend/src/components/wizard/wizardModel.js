@@ -3,6 +3,7 @@ import { getAliasFeedback, validateStepOne, validateStepTwo } from "../../api/li
 export const INITIAL_FORM = Object.freeze({
   destinationUrl: "",
   customAlias: "",
+  campaignId: "",
   enableExpiration: false,
   expiresAt: "",
   enableClickLimit: false,

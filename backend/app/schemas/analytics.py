@@ -69,4 +69,5 @@ class AnalyticsResponse(BaseModel):
     clicks_over_time: list[ClicksOverTimePoint]
     device_breakdown: list[AnalyticsBreakdownItem]
     browser_breakdown: list[AnalyticsBreakdownItem]
+    referrer_breakdown: list[AnalyticsBreakdownItem] = []
     top_links: list[TopLinkAnalytics]

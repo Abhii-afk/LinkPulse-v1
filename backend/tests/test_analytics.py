@@ -91,6 +91,7 @@ def overview_results(
     time_series: list[object] | None = None,
     devices: list[object] | None = None,
     browsers: list[object] | None = None,
+    referrers: list[object] | None = None,
     top_links: list[object] | None = None,
 ) -> list[FakeResult]:
     return [
@@ -107,6 +108,7 @@ def overview_results(
         FakeResult(rows=time_series),
         FakeResult(rows=devices),
         FakeResult(rows=browsers),
+        FakeResult(rows=referrers),
         FakeResult(rows=top_links),
     ]
 
@@ -175,6 +177,7 @@ async def test_user_overview_returns_sensible_empty_state(
         "clicks_over_time": [],
         "device_breakdown": [],
         "browser_breakdown": [],
+        "referrer_breakdown": [],
         "top_links": [],
     }
 
@@ -207,6 +210,10 @@ async def test_user_overview_uses_database_aggregates_for_mvp_metrics(
             browsers=[
                 SimpleNamespace(value="Chrome", clicks=2),
                 SimpleNamespace(value="Safari", clicks=2),
+            ],
+            referrers=[
+                SimpleNamespace(value="Direct", clicks=2),
+                SimpleNamespace(value="https://newsletter.example/", clicks=2),
             ],
             top_links=[
                 SimpleNamespace(
@@ -254,8 +261,12 @@ async def test_user_overview_uses_database_aggregates_for_mvp_metrics(
         {"value": "Chrome", "clicks": 2, "percentage": 50.0},
         {"value": "Safari", "clicks": 2, "percentage": 50.0},
     ]
+    assert body["referrer_breakdown"] == [
+        {"value": "Direct", "clicks": 2, "percentage": 50.0},
+        {"value": "https://newsletter.example/", "clicks": 2, "percentage": 50.0},
+    ]
     assert body["top_links"][0]["short_code"] == "top-link"
-    assert len(session.statements) == 6
+    assert len(session.statements) == 7
 
 
 def link_results(
@@ -270,6 +281,7 @@ def link_results(
     time_series: list[object] | None = None,
     devices: list[object] | None = None,
     browsers: list[object] | None = None,
+    referrers: list[object] | None = None,
     top_links: list[object] | None = None,
 ) -> list[FakeResult]:
     return [
@@ -285,6 +297,7 @@ def link_results(
             time_series=time_series,
             devices=devices,
             browsers=browsers,
+            referrers=referrers,
             top_links=top_links,
         ),
     ]
@@ -344,6 +357,7 @@ async def test_historical_events_remain_available_for_disabled_or_expired_links(
             ],
             devices=[SimpleNamespace(value="Mobile", clicks=2)],
             browsers=[SimpleNamespace(value="Chrome", clicks=2)],
+            referrers=[SimpleNamespace(value="Direct", clicks=2)],
             top_links=[
                 SimpleNamespace(
                     link_id=link.id,

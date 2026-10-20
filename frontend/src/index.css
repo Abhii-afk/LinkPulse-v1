@@ -142,6 +142,151 @@ a {
   justify-content: flex-end;
 }
 
+.app-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.app-nav-item {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted-strong);
+  cursor: pointer;
+  font-size: 0.82rem;
+  padding: 0.35rem 0.85rem;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.app-nav-item:hover {
+  color: var(--ink);
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.app-nav-item.is-active {
+  color: var(--ink);
+  border-color: var(--line-strong);
+  background: rgba(56, 189, 248, 0.14);
+}
+
+.workspace-main {
+  display: grid;
+  gap: 1.5rem;
+  padding-bottom: 3rem;
+}
+
+.import-card {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.import-form {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.import-result {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.import-summary {
+  margin: 0;
+  color: var(--muted-strong);
+  font-size: 0.9rem;
+}
+
+.settings-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.settings-list div {
+  display: grid;
+  grid-template-columns: 12rem 1fr;
+  gap: 1rem;
+  align-items: baseline;
+}
+
+.settings-list dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.settings-list dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.92rem;
+}
+
+.qr-modal {
+  max-width: 26rem;
+}
+
+.qr-body {
+  display: grid;
+  gap: 1rem;
+  justify-items: center;
+  padding: 0.5rem 0 1rem;
+}
+
+.qr-image {
+  width: 15rem;
+  height: 15rem;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 0.75rem;
+}
+
+.qr-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.cap-warning {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  border: 1px solid transparent;
+}
+
+.cap-warning-warning {
+  color: #fcd34d;
+  border-color: rgba(252, 211, 77, 0.4);
+  background: rgba(252, 211, 77, 0.12);
+}
+
+.cap-warning-danger {
+  color: #fda4b3;
+  border-color: rgba(253, 164, 175, 0.45);
+  background: rgba(253, 164, 175, 0.14);
+}
+
+.field-label select {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.72);
+  color: var(--ink);
+  font: inherit;
+}
+
+.field-label select:focus {
+  outline: none;
+  border-color: var(--accent-strong);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
+}
+
 .session-panel {
   display: flex;
   align-items: center;

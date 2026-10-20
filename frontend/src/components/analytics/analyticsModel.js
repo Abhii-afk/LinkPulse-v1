@@ -92,6 +92,25 @@ export function getLinePoints(points, width = 640, height = 220, padding = 24) {
     .join(" ");
 }
 
+export const CAP_WARNING_RATIO = 0.8;
+
+export function getCapWarning(link) {
+  if (!link || !link.click_limit) {
+    return null;
+  }
+  const ratio = Number(link.clicks || 0) / Number(link.click_limit);
+  if (!Number.isFinite(ratio)) {
+    return null;
+  }
+  if (ratio >= 1) {
+    return { tone: "danger", label: "Cap reached" };
+  }
+  if (ratio >= CAP_WARNING_RATIO) {
+    return { tone: "warning", label: `${Math.round(ratio * 100)}% of cap` };
+  }
+  return null;
+}
+
 export function hasAnalyticsData(data) {
   return Boolean(
     data &&

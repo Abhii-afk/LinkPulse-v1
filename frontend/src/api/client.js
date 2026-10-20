@@ -80,3 +80,73 @@ export async function requestJson(
 
   return payload;
 }
+
+export async function requestBlob(
+  path,
+  { accessToken, fetchImpl = globalThis.fetch } = {},
+) {
+  if (typeof fetchImpl !== "function") {
+    throw new ApiError("Network requests are unavailable in this browser.");
+  }
+
+  const headers = { Accept: "image/png" };
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
+  let response;
+  try {
+    response = await fetchImpl(`${API_BASE_URL}${path}`, { method: "GET", headers });
+  } catch {
+    throw new ApiError(
+      "LinkPulse could not reach the API. Check that the backend is running.",
+    );
+  }
+
+  if (!response.ok) {
+    const payload = await readPayload(response);
+    throw new ApiError(getErrorMessage(payload, response.status), {
+      status: response.status,
+      details: payload,
+    });
+  }
+
+  return response.blob();
+}
+
+export async function requestMultipart(
+  path,
+  { formData, accessToken, fetchImpl = globalThis.fetch } = {},
+) {
+  if (typeof fetchImpl !== "function") {
+    throw new ApiError("Network requests are unavailable in this browser.");
+  }
+
+  const headers = {};
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
+  let response;
+  try {
+    response = await fetchImpl(`${API_BASE_URL}${path}`, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+  } catch {
+    throw new ApiError(
+      "LinkPulse could not reach the API. Check that the backend is running.",
+    );
+  }
+
+  const payload = await readPayload(response);
+  if (!response.ok) {
+    throw new ApiError(getErrorMessage(payload, response.status), {
+      status: response.status,
+      details: payload,
+    });
+  }
+
+  return payload;
+}

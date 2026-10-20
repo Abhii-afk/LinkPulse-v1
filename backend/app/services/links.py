@@ -2,6 +2,8 @@ import json
 import secrets
 import string
 from collections.abc import Callable
+from datetime import datetime, timezone
+from typing import Literal
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -80,6 +82,39 @@ async def _delete_cache_key(redis: Redis, key: str) -> None:
 
 def link_cache_key(short_code: str) -> str:
     return f"{LINK_CACHE_PREFIX}{short_code}"
+
+
+def link_status_from_values(
+    *,
+    is_active: bool,
+    is_abusive: bool,
+    expires_at: datetime | None,
+) -> Literal["active", "disabled", "abusive", "expired"]:
+    """The status a link shows everywhere it is listed.
+
+    Disabled wins over abusive, because a link that was switched off is
+    reported as switched off even if it was also flagged.
+    """
+
+    if not is_active:
+        return "disabled"
+    if is_abusive:
+        return "abusive"
+    if expires_at is not None:
+        expiry = expires_at
+        if expiry.tzinfo is None or expiry.utcoffset() is None:
+            expiry = expiry.replace(tzinfo=timezone.utc)
+        if expiry <= datetime.now(timezone.utc):
+            return "expired"
+    return "active"
+
+
+def link_status(link: Link) -> Literal["active", "disabled", "abusive", "expired"]:
+    return link_status_from_values(
+        is_active=link.is_active,
+        is_abusive=link.is_abusive,
+        expires_at=link.expires_at,
+    )
 
 
 def click_count_key(short_code: str) -> str:

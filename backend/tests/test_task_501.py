@@ -425,6 +425,7 @@ async def test_disabled_link_keeps_historical_analytics_available(
             ),
             FakeResult(rows=[SimpleNamespace(value="Mobile", clicks=2)]),
             FakeResult(rows=[SimpleNamespace(value="Chrome", clicks=2)]),
+            FakeResult(rows=[SimpleNamespace(value="Direct", clicks=2)]),
             FakeResult(
                 rows=[
                     SimpleNamespace(

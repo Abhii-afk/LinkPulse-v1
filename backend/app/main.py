@@ -10,6 +10,7 @@ from app.core.redis_client import create_redis_client
 from app.routers.admin import router as admin_router
 from app.routers.analytics import router as analytics_router
 from app.routers.auth import router as auth_router
+from app.routers.campaigns import router as campaigns_router
 from app.routers.health import router as health_router
 from app.routers.links import router as links_router
 from app.routers.redirect import router as redirect_router
@@ -45,6 +46,7 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(links_router)
+app.include_router(campaigns_router)
 app.include_router(user_router)
 app.include_router(admin_router)
 app.include_router(analytics_router)

@@ -1,6 +1,13 @@
 import { getAliasFeedback } from "../../api/links.js";
 
-export default function TargetAliasStep({ form, fieldErrors, aliasTaken, onChange, onNext }) {
+export default function TargetAliasStep({
+  form,
+  fieldErrors,
+  aliasTaken,
+  campaigns = [],
+  onChange,
+  onNext,
+}) {
   const aliasFeedback = getAliasFeedback(form.customAlias, { aliasTaken });
 
   return (
@@ -58,6 +65,28 @@ export default function TargetAliasStep({ form, fieldErrors, aliasTaken, onChang
             {fieldErrors.customAlias}
           </span>
         )}
+      </label>
+
+      <label className="field-label" htmlFor="campaign-id">
+        Campaign <span className="optional-mark">Optional</span>
+        <select
+          id="campaign-id"
+          name="campaignId"
+          value={form.campaignId || ""}
+          onChange={onChange}
+        >
+          <option value="">No campaign</option>
+          {campaigns.map((campaign) => (
+            <option key={campaign.id} value={campaign.id}>
+              {campaign.name}
+            </option>
+          ))}
+        </select>
+        <span className="field-hint">
+          {campaigns.length
+            ? "Group this link with the rest of a campaign."
+            : "Create a campaign first if you want to group links together."}
+        </span>
       </label>
 
       <div className="wizard-note" role="note">

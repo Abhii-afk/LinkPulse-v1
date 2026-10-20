@@ -1,5 +1,6 @@
 import {
   formatMetric,
+  getCapWarning,
   getLinkStatus,
   getManagedLinks,
   getStatusLabel,
@@ -22,6 +23,7 @@ export function getManagedLinkRows(data) {
       statusLabel: getStatusLabel(status),
       statusTone: getStatusTone(status),
       clickCap: getClickCap(link),
+      capWarning: getCapWarning(link),
       historical: status === "disabled" || status === "expired" || status === "abusive",
     };
   });
@@ -58,7 +60,14 @@ export default function ManagedLinksTable({ data }) {
                       <strong>/{link.short_code}</strong>
                       {link.destination_url && <small>{link.destination_url}</small>}
                     </td>
-                    <td>{link.clickCap}</td>
+                    <td>
+                      {link.clickCap}
+                      {link.capWarning && (
+                        <span className={`cap-warning cap-warning-${link.capWarning.tone}`}>
+                          {link.capWarning.label}
+                        </span>
+                      )}
+                    </td>
                     <td>
                       <span className={`status-pill status-pill-${link.statusTone}`}>
                         <i aria-hidden="true" /> {link.statusLabel}
