@@ -14,10 +14,10 @@ this shape:
 | Component | Provider | Configuration in this repository |
 | --- | --- | --- |
 | Frontend (React SPA) | Vercel | `frontend/vercel.json`, Vercel Root Directory `frontend` |
-| API (FastAPI) | Railway | `railway.json` at the repository root, `backend/Dockerfile` |
-| Analytics worker | Railway (second service) | same `backend/Dockerfile`, different start command |
+| API (FastAPI) | Railway | `railway.json` at the repository root, `Dockerfile` at the root |
+| Analytics worker | Railway (second service) | same `Dockerfile`, different start command |
 | Cache and queue (Redis) | Railway Redis plugin | environment variables only |
-| Database (PostgreSQL) | Neon | environment variables only |
+| Database (PostgreSQL) | Railway Postgres plugin | environment variables only |
 
 Render and Supabase work as well and are noted in section 6. They need the
 same environment variables, nothing else changes.
@@ -30,9 +30,32 @@ same environment variables, nothing else changes.
      +---> [Railway service: api]     ---> uvicorn app.main:app
      |    [Railway service: worker]  ---> python -m workers.analytics_worker
      |    [Railway plugin: Redis]     ---> cache + click event stream
-     |
-     +---> [Neon] ---> managed PostgreSQL
+     |    [Railway plugin: Postgres]  ---> durable state
 ```
+
+### What the first deployment taught us
+
+Four things have to be right, and each of them failed before it was fixed.
+They are listed here because they are not obvious from the provider
+documentation.
+
+1. **The build context is the repository root.** Railway has no option to
+   change it, so a Dockerfile that copies `alembic.ini` from the context
+   root only works when the Dockerfile lives in the repository root. The
+   image is therefore built from the root, and `docker compose` uses the
+   same context, so one file produces one image everywhere.
+2. **The image command has to be in shell form.** The exec form does not
+   expand variables, so a platform that assigns the port through `$PORT`
+   hands the literal string to uvicorn and the service refuses to start
+   with `Invalid value for '--port'`. The command is
+   `sh -c 'uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}'`.
+3. **The migrations have to run inside the platform.** The database and the
+   cache are reachable over the private network only, so
+   `preDeployCommand: alembic upgrade head` runs the migration from the
+   service container itself. Running it from a laptop needs a tunnel.
+4. **The worker serves no HTTP.** It has no health check path, and its
+   start command is `python -m workers.analytics_worker`. The api service
+   reports the worker through the Redis heartbeat instead.
 
 ## 2. Local environment with Docker Compose
 
@@ -180,27 +203,23 @@ this repository, so no hosted URL is claimed here.
 ### API and worker on Railway
 
 `railway.json` only carries the build configuration, because both services
-are built from the same `backend/Dockerfile` and need different start
-commands.
+are built from the same `Dockerfile` and need different start commands.
 
 1. Create a Railway project from the repository.
-2. Add the PostgreSQL plugin (or copy the Neon connection string) and the
-   Redis plugin.
-3. Create the **api** service. Railway builds `backend/Dockerfile` and the
-   image starts uvicorn by default. Set the variables `DATABASE_URL`,
-   `REDIS_URL`, `JWT_SECRET`, `LINK_SESSION_SECRET`, `PUBLIC_BASE_URL`,
-   `APP_ENV=production` and `CORS_ALLOWED_ORIGINS`.
-   Then set the health check path to `/health` and the health check timeout
-   to 45 seconds in the service settings.
+2. Add the **Postgres** plugin and the **Redis** plugin.
+3. Create the **api** service. Railway builds the `Dockerfile` at the
+   repository root. Set the variables `DATABASE_URL`, `REDIS_URL`,
+   `JWT_SECRET`, `LINK_SESSION_SECRET`, `PUBLIC_BASE_URL`, `APP_ENV=production`
+   and `CORS_ALLOWED_ORIGINS`.
+   Then set, in the service settings:
+   * start command `sh -c 'uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}'`
+   * health check path `/health`, health check timeout `45`
+   * pre-deploy command `alembic upgrade head`
 4. Create the **worker** service from the same repository and the same
-   Dockerfile. Change its **start command** to
-   `python -m workers.analytics_worker` and leave the health check path
-   empty, because the worker serves no HTTP. It needs `DATABASE_URL`,
-   `REDIS_URL` and `JWT_SECRET`.
-5. Run the migration once, from a local machine or a one-off Railway
-   command: `cd backend && alembic upgrade head` with `DATABASE_URL` pointed
-   at the production database.
-6. Point the frontend's `VITE_API_BASE_URL` at the API service and redeploy
+   Dockerfile. Set `DATABASE_URL`, `REDIS_URL` and `JWT_SECRET`. Set the
+   **start command** to `python -m workers.analytics_worker` and leave the
+   health check path empty, because the worker serves no HTTP.
+5. Point the frontend's `VITE_API_BASE_URL` at the api service and deploy
    the frontend.
 
 #### The database URL can be pasted as it is
@@ -211,6 +230,14 @@ refuse the connection with
 `connect() got an unexpected keyword argument 'sslmode'`. The application
 translates the option to `ssl` before it connects, so the connection string
 can be pasted exactly as the provider shows it.
+
+#### The Railway plugin URLs are private
+
+The plugin hands out `postgresql://postgres:...@postgres.railway.internal:5432/railway`
+and `redis://:...@redis.railway.internal:6379`. Those names only resolve
+inside the Railway network, which is why the migration runs as a pre-deploy
+command instead of from a laptop. Change the scheme to
+`postgresql+asyncpg://` because this application uses asyncpg.
 
 ### Alternatives
 
@@ -235,7 +262,8 @@ cd backend && LINKPULSE_SMOKE_BASE_URL=http://127.0.0.1:8000 pytest tests/test_s
 
 These cannot be completed from the repository alone:
 
-1. Create the Vercel, Railway and Neon accounts and connect the repository.
+1. Create the Vercel, Railway and database accounts and connect the
+   repository.
 2. Provide the production `JWT_SECRET` and `LINK_SESSION_SECRET` through a
    secret manager.
 3. Run `alembic upgrade head` against the production database.
@@ -243,3 +271,19 @@ These cannot be completed from the repository alone:
 5. Verify the public URL with the smoke test in section 5.
 6. Decide on a real `GEOLITE2_CITY_DB_PATH`; without it the worker falls
    back to deterministic mock coordinates, which is fine for a demo.
+
+### Deploying the demo data
+
+The seed script needs a database connection, so on a platform with a
+private network it has to run inside the platform. Repurposing the worker
+service for one deployment works:
+
+```bash
+railway variables --service worker --set "JWT_SECRET=..."
+railway service redeploy -s worker --from-source --yes
+```
+
+with the worker's start command set to
+`python -m scripts.seed_demo_data --admin-password <password>` for that
+one deployment, then set it back to `python -m workers.analytics_worker`
+and redeploy. The seed is idempotent, so running it twice changes nothing.
