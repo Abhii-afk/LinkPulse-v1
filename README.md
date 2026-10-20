@@ -157,15 +157,11 @@ These are throwaway credentials for the public demo. Rotate them before
 using the deployment for anything real.
 
 ## Screenshots
+<img width="1916" height="965" alt="Screenshot 2026-10-20 143906" src="https://github.com/user-attachments/assets/fe8d312e-52ec-457c-ae26-a5cdfe6afd46" />
+<img width="1917" height="963" alt="Screenshot 2026-10-20 142757" src="https://github.com/user-attachments/assets/4ec9785a-268a-455b-8e45-f4335263d2f6" />
+<img width="1917" height="962" alt="Screenshot 2026-10-20 142713" src="https://github.com/user-attachments/assets/df72d2f1-2261-439d-b010-9f2098f8742a" />
+<img width="1917" height="967" alt="Screenshot 2026-10-20 142905" src="https://github.com/user-attachments/assets/82b92e4b-8a50-4dd2-87cb-d46634347c8f" />
 
-<img width="1917" height="896" alt="Screenshot 2026-10-20 132225" src="https://github.com/user-attachments/assets/5cf83b09-18d8-4c34-a528-887a2fbcfb04" />
-<img width="1917" height="971" alt="Screenshot 2026-10-20 132213" src="https://github.com/user-attachments/assets/6225f3f8-551d-41c1-9f75-3b33a17de1f4" />
-
-
-
-
-_Placeholder: link creation wizard, analytics dashboard, admin kill-switch,
-CSV import error report._
 
 ## Setup
 
