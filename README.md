@@ -151,7 +151,11 @@ using the deployment for anything real.
 
 ## Screenshots
 
-<!-- Add your screenshots here. -->
+<img width="1917" height="896" alt="Screenshot 2026-10-20 132225" src="https://github.com/user-attachments/assets/5cf83b09-18d8-4c34-a528-887a2fbcfb04" />
+<img width="1917" height="971" alt="Screenshot 2026-10-20 132213" src="https://github.com/user-attachments/assets/6225f3f8-551d-41c1-9f75-3b33a17de1f4" />
+
+
+
 
 _Placeholder: link creation wizard, analytics dashboard, admin kill-switch,
 CSV import error report._
