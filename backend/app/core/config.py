@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 30
     link_session_secret: str = ""
     link_session_ttl_seconds: int = 900
+    cors_allowed_origins: str = "http://127.0.0.1:5173,http://localhost:5173"
     rate_limit_link_creation_per_minute: int = 30
     rate_limit_window_seconds: int = 60
     rate_limit_password_attempts_per_minute: int = 10
@@ -57,6 +58,21 @@ class Settings(BaseSettings):
         """Cookies are only marked Secure when the public origin is HTTPS."""
 
         return self.public_base_url.lower().startswith("https://")
+
+    @property
+    def cors_origins(self) -> list[str]:
+        """Browser origins that may call the API.
+
+        The front end is served from a different origin than the API, so the
+        browser sends a preflight request before every call. Without these
+        origins the request is blocked before it leaves the browser.
+        """
+
+        return [
+            origin.strip()
+            for origin in self.cors_allowed_origins.split(",")
+            if origin.strip()
+        ]
 
 
 @lru_cache

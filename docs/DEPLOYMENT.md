@@ -97,6 +97,13 @@ Variables that usually change per environment:
 | `APP_ENV` | `development` | `production` |
 | `JWT_SECRET` | local value | 32 bytes or more from a secret manager |
 | `LINK_SESSION_SECRET` | empty, falls back to `JWT_SECRET` | a separate key so it can be rotated on its own |
+| `CORS_ALLOWED_ORIGINS` | `http://127.0.0.1:5173,http://localhost:5173` | the public frontend origin, for example `https://linkpulse.vercel.app` |
+
+`CORS_ALLOWED_ORIGINS` matters more than it looks: the front end is served
+from a different origin than the API, so the browser sends a preflight
+request before every call. If the front end's origin is not listed, the
+request is blocked before it leaves the browser and the UI reports that the
+backend is unreachable even though it is running.
 
 ## 4. Health checks
 

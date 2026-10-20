@@ -1,9 +1,15 @@
 import { useState } from "react";
 
 import AnalyticsDashboard from "../components/analytics/AnalyticsDashboard.jsx";
+import SessionPanel from "../components/SessionPanel.jsx";
 import CreationWizard from "../components/wizard/CreationWizard.jsx";
 
-export default function LinksPage({ accessToken = null, userRole = null }) {
+export default function LinksPage({
+  accessToken = null,
+  userRole = null,
+  onSignIn = null,
+  onSignOut = null,
+}) {
   const [isWizardOpen, setWizardOpen] = useState(false);
   const [createdLink, setCreatedLink] = useState(null);
   const [selectedRange, setSelectedRange] = useState("30d");
@@ -26,9 +32,20 @@ export default function LinksPage({ accessToken = null, userRole = null }) {
             <span className="brand-subtitle">Link workspace</span>
           </div>
         </div>
-        <div className="session-state" title={accessToken ? "Authenticated session" : "No authenticated session"}>
-          <span className={`session-dot${accessToken ? " is-authenticated" : ""}`} aria-hidden="true" />
-          {accessToken ? "Ready to publish" : "Sign in to publish"}
+        <div className="session-area">
+          <div
+            className="session-state"
+            title={accessToken ? "Authenticated session" : "No authenticated session"}
+          >
+            <span className={`session-dot${accessToken ? " is-authenticated" : ""}`} aria-hidden="true" />
+            {accessToken ? `Signed in as ${userRole || "member"}` : "Sign in to publish"}
+          </div>
+          <SessionPanel
+            accessToken={accessToken}
+            userRole={userRole}
+            onSignIn={onSignIn}
+            onSignOut={onSignOut}
+          />
         </div>
       </header>
 

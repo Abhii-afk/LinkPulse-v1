@@ -40,12 +40,14 @@ http://127.0.0.1:5173 and keep it ready.
 
 ## Scenario 1: link creation to analytics (0:30 - 2:30)
 
-**1. Show the seeded workspace (0:30 - 0:45)**
+**1. Sign in and show the seeded workspace (0:30 - 0:45)**
 
-Open http://127.0.0.1:5173. The dashboard already shows two weeks of
-history: total clicks, active links, bots filtered and unique visitors, plus
-the traffic chart, the device and browser breakdowns and the managed links
-table with the expired, disabled and limited links in their states.
+Open http://127.0.0.1:5173. Sign in with `demo@linkpulse.local` and
+`demo-password-123` using the form in the top right. The dashboard then
+shows two weeks of history: total clicks, active links, bots filtered and
+unique visitors, plus the traffic chart, the device and browser breakdowns
+and the managed links table with the expired, disabled and limited links in
+their states.
 
 *Say:* "Every number here comes from click events that were written by a
 background worker, not by the redirect request."
@@ -184,6 +186,7 @@ them the second they turn bad."*
 | The dashboard is empty | `cd backend && python -m scripts.seed_demo_data --reset` | The database was reseeded |
 | The API is down | `docker compose ps` and `docker compose logs api` | The migration failed, so the API never started |
 | The worker is not writing | `docker compose logs worker` | The worker cannot reach Redis or PostgreSQL |
+| "LinkPulse could not reach the API" | `curl -i -X OPTIONS http://127.0.0.1:8000/api/v1/links -H "Origin: http://127.0.0.1:5173" -H "Access-Control-Request-Method: POST"` | The browser is blocked by CORS. The answer has to contain `access-control-allow-origin: http://127.0.0.1:5173`. Add the origin to `CORS_ALLOWED_ORIGINS` and rebuild the API image |
 | The frontend shows no data | check `VITE_API_BASE_URL` and rebuild the image | The bundle points at the wrong API origin |
 | The demo port is taken | `docker compose down` and `docker compose up -d` | A host process is holding 8000 or 5173 |
 
