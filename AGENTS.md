@@ -48,6 +48,7 @@ backend/tests/, frontend/src/{components,pages,api}, docker-compose.yml
 
 ## Commands (keep this section updated as the project grows)
 - Start infra: `docker compose up -d db redis`
+- Start everything: `docker compose up -d --build`
 - Connectivity checks: `cd backend && python -m scripts.check_services`
 - Migrate: `cd backend && alembic upgrade head`
 - Bootstrap admin: `cd backend && python -m scripts.bootstrap_admin --email admin@example.com`
@@ -55,6 +56,10 @@ backend/tests/, frontend/src/{components,pages,api}, docker-compose.yml
 - Worker: `cd backend && python -m workers.analytics_worker`
 - Backend tests: `cd backend && pytest -q`
 - Frontend: `cd frontend && npm run dev`
+- Health probes: `curl http://127.0.0.1:8000/health/live` and `/health`
+- Seed demo data: `cd backend && python -m scripts.seed_demo_data`
+- Demo rehearsal: `cd backend && python -m scripts.demo_rehearsal`
+- Live smoke test: `cd backend && LINKPULSE_SMOKE_BASE_URL=http://127.0.0.1:8000 pytest tests/test_smoke_live.py -q`
 
 ## Definition of done for any slice
 - Tests for the new behavior pass, including at least one failure case

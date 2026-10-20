@@ -30,6 +30,14 @@ class FakeRedis:
         )
         self.ack_error = False
         self.group_error: ResponseError | None = None
+        self.heartbeats: dict[str, str] = {}
+
+    async def set(self, key: str, value: str, *, ex: int | None = None) -> bool:
+        self.heartbeats[key] = value
+        return True
+
+    async def sadd(self, _key: str, _value: str) -> int:
+        return 1
 
     async def xgroup_create(
         self,
@@ -390,6 +398,39 @@ async def test_batch_statement_keeps_the_durable_link_click_count_in_step() -> N
     assert "WITH inserted_clicks AS" in statement_sql
     assert "UPDATE links SET total_clicks" in statement_sql
     assert "ON CONFLICT (stream_message_id) DO NOTHING" in statement_sql
+
+
+@pytest.mark.asyncio
+async def test_worker_publishes_a_heartbeat_on_every_iteration() -> None:
+    order: list[str] = []
+    redis = FakeRedis()
+    redis.calls = order
+    session = FakeSession(order)
+    worker = make_worker(redis, session)
+
+    await worker.run_once()
+
+    assert redis.heartbeats
+    heartbeat_key = next(iter(redis.heartbeats))
+    assert heartbeat_key.startswith("linkpulse:worker:heartbeat:")
+    assert redis.heartbeats[heartbeat_key]
+
+
+@pytest.mark.asyncio
+async def test_a_failing_heartbeat_never_stops_the_worker() -> None:
+    class BrokenRedis(FakeRedis):
+        async def set(self, _key: str, _value: str, *, ex: int | None = None) -> bool:
+            raise ConnectionError("redis unavailable")
+
+    redis = BrokenRedis()
+    session = FakeSession([])
+    worker = make_worker(redis, session)
+    redis.new_response = [("stream:clicks", [event_message("11-0")])]
+
+    processed = await worker.run_once()
+
+    assert processed is True
+    assert redis.acknowledged == ["11-0"]
 
 
 @pytest.mark.asyncio

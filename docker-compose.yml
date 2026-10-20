@@ -1,3 +1,16 @@
+# Local LinkPulse environment.
+#
+# Services:
+#   db        PostgreSQL 16 (persistent volume)
+#   redis     Redis 7 for the routing cache and the click event stream
+#   migrate   one-shot Alembic upgrade, runs before the API and the worker
+#   api       FastAPI on http://127.0.0.1:8000
+#   worker    analytics worker consuming the Redis stream
+#   frontend  built single page application on http://127.0.0.1:5173
+#
+# Every value comes from the .env file in the repository root. Copy
+# .env.example to .env and fill it in before the first run.
+
 services:
   db:
     image: postgres:16-alpine
@@ -26,9 +39,79 @@ services:
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
-      timeout: 3s
+      timeout: 5s
       retries: 10
       start_period: 5s
+
+  migrate:
+    build:
+      context: ./backend
+    command: ["alembic", "upgrade", "head"]
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-linkpulse}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-linkpulse}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ./backend
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-linkpulse}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-linkpulse}
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  worker:
+    build:
+      context: ./backend
+    command: ["python", "-m", "workers.analytics_worker"]
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-linkpulse}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-linkpulse}
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-m", "scripts.check_worker"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://127.0.0.1:8000}
+    ports:
+      - "${FRONTEND_PORT:-5173}:4173"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   postgres_data:

@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import settings
 from app.core.database import async_session_factory, engine
+from app.core.heartbeat import publish_heartbeat
 from app.core.redis_client import create_redis_client
 from app.models.click_event import ClickEvent
 from app.models.link import Link
@@ -95,6 +96,18 @@ class AnalyticsWorker:
         except ResponseError as error:
             if "BUSYGROUP" not in str(error):
                 raise
+
+    async def publish_heartbeat(self) -> None:
+        """Tell the API that this worker process is alive.
+
+        A failure here must never stop the worker, so the error is logged
+        and swallowed.
+        """
+
+        try:
+            await publish_heartbeat(self.redis, self.consumer_name)
+        except Exception:
+            logger.warning("Could not publish the worker heartbeat", exc_info=True)
 
     async def reclaim_stale_messages(self) -> list[StreamMessage]:
         result = await self.redis.xautoclaim(
@@ -293,6 +306,8 @@ class AnalyticsWorker:
         return True
 
     async def run_once(self) -> bool:
+        await self.publish_heartbeat()
+
         reclaimed = await self.reclaim_stale_messages()
         if reclaimed:
             return await self.process_messages(reclaimed)

@@ -1,0 +1,8 @@
+destination_url,custom_alias,click_limit
+https://example.com/spring-launch,launch-2026,250
+https://example.com/newsletter/march,newsletter-march,100
+https://example.com/early-access,early-access,50
+https://example.com/limited-offer,limited-offer,25
+https://example.com/partner-portal,partner-portal,100
+https://example.com/webinar-replay,webinar-replay,150
+not-a-valid-url,broken-row,10
