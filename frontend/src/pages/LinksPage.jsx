@@ -20,7 +20,7 @@ function getCapWarning(link) {
   return null;
 }
 
-function QrCodePanel({ link, onClose }) {
+function QrCodePanel({ link, accessToken, onClose }) {
   const [imageUrl, setImageUrl] = useState(null);
   const [error, setError] = useState(null);
 
@@ -28,7 +28,7 @@ function QrCodePanel({ link, onClose }) {
     let revoked = null;
     let cancelled = false;
 
-    fetchQrCode(link.short_code)
+    fetchQrCode(link.short_code, { accessToken })
       .then((blob) => {
         if (cancelled) {
           return;
@@ -48,7 +48,7 @@ function QrCodePanel({ link, onClose }) {
         URL.revokeObjectURL(revoked);
       }
     };
-  }, [link.short_code]);
+  }, [link.short_code, accessToken]);
 
   return (
     <div className="modal-backdrop" role="presentation">
@@ -261,7 +261,9 @@ export default function LinksPage({
         </section>
       )}
 
-      {qrLink && <QrCodePanel link={qrLink} onClose={() => setQrLink(null)} />}
+      {qrLink && (
+        <QrCodePanel link={qrLink} accessToken={accessToken} onClose={() => setQrLink(null)} />
+      )}
 
       <CreationWizard
         isOpen={isWizardOpen}

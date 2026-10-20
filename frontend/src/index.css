@@ -190,6 +190,7 @@ a {
 
 .workspace-main {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.5rem;
   padding-bottom: 3rem;
 }
@@ -197,11 +198,13 @@ a {
 .import-card {
   display: grid;
   gap: 1.1rem;
+  padding: 1.05rem;
 }
 
 .import-form {
   display: grid;
   gap: 0.4rem;
+  min-width: 0;
 }
 
 .import-result {
@@ -290,6 +293,7 @@ a {
 
 .field-label select {
   width: 100%;
+  min-width: 0;
   padding: 0.6rem 0.75rem;
   border: 1px solid var(--line-strong);
   border-radius: 10px;
@@ -346,6 +350,10 @@ a {
   padding: 5.5rem 0 4rem;
 }
 
+.workspace-hero > div {
+  min-width: 0;
+}
+
 .workspace-hero h1 {
   max-width: 680px;
   margin: 0.75rem 0 1rem;
@@ -354,6 +362,7 @@ a {
   font-weight: 760;
   letter-spacing: -0.06em;
   line-height: 0.98;
+  overflow-wrap: break-word;
 }
 
 .hero-copy {
@@ -362,6 +371,11 @@ a {
   color: var(--muted);
   font-size: 1.05rem;
   line-height: 1.7;
+  overflow-wrap: break-word;
+}
+
+.hero-copy code {
+  overflow-wrap: anywhere;
 }
 
 .button {
@@ -664,6 +678,7 @@ a {
 
 .field-label input {
   width: 100%;
+  min-width: 0;
   border: 1px solid var(--line-strong);
   border-radius: 10px;
   outline: none;
