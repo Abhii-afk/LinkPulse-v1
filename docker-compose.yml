@@ -49,7 +49,8 @@ services:
 
   migrate:
     build:
-      context: ./backend
+      context: .
+      dockerfile: Dockerfile
     command: ["alembic", "upgrade", "head"]
     env_file:
       - .env
@@ -62,7 +63,8 @@ services:
 
   api:
     build:
-      context: ./backend
+      context: .
+      dockerfile: Dockerfile
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     env_file:
       - .env
@@ -85,7 +87,8 @@ services:
 
   worker:
     build:
-      context: ./backend
+      context: .
+      dockerfile: Dockerfile
     command: ["python", "-m", "workers.analytics_worker"]
     env_file:
       - .env
